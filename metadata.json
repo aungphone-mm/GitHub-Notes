@@ -1,0 +1,6 @@
+{
+  "name": "GitHub Notes",
+  "description": "A Markdown note-taking app backed directly by GitHub REST Contents API commits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
