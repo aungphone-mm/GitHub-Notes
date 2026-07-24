@@ -15,6 +15,7 @@ export interface NoteHeader {
   title?: string;
   tags?: string[];
   isDaily?: boolean;
+  content?: string;
 }
 
 export interface NoteDetail {

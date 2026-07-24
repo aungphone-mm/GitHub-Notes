@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusState } from '../types';
-import { AlertCircle, CheckCircle2, Info, Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface StatusBarProps {
   status: StatusState;
@@ -10,35 +10,29 @@ interface StatusBarProps {
 export const StatusBar: React.FC<StatusBarProps> = ({ status, onClear }) => {
   if (!status.message && status.type === 'idle') return null;
 
-  const bgStyles = {
-    idle: 'bg-gray-100 text-gray-700 border-gray-200',
-    loading: 'bg-blue-50 text-blue-800 border-blue-200',
-    success: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    error: 'bg-red-50 text-red-800 border-red-200',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200'
-  };
-
-  const icons = {
-    idle: <Info className="w-4 h-4 text-gray-500 shrink-0" />,
-    loading: <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />,
-    success: <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />,
-    error: <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />,
-    warning: <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+  const dotColors = {
+    idle: 'bg-gray-400',
+    loading: 'bg-blue-500',
+    success: 'bg-emerald-500',
+    error: 'bg-red-500',
+    warning: 'bg-amber-500'
   };
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`px-3 py-2 text-xs border-y flex items-center justify-between gap-2 transition-all ${
-        bgStyles[status.type] || bgStyles.idle
-      }`}
+      className="px-4 py-2 text-xs font-mono bg-[#f8fafc] border-y border-gray-200 flex items-center justify-between gap-2 text-gray-600 select-none"
     >
-      <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
-        {icons[status.type]}
-        <span className="font-medium">{status.message}</span>
+      <div className="flex items-center gap-2 overflow-hidden truncate">
+        {status.type === 'loading' ? (
+          <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin shrink-0" />
+        ) : (
+          <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${dotColors[status.type] || dotColors.idle}`} />
+        )}
+        <span className="font-medium truncate">{status.message}</span>
         {status.detail && (
-          <span className="font-mono text-[11px] opacity-80 truncate hidden sm:inline">
+          <span className="text-[11px] opacity-75 truncate hidden sm:inline">
             ({status.detail})
           </span>
         )}
@@ -48,8 +42,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ status, onClear }) => {
         <button
           type="button"
           onClick={onClear}
-          className="text-xs opacity-60 hover:opacity-100 font-bold px-1 py-0.5 rounded focus:outline-none"
-          title="Dismiss status"
+          className="text-xs opacity-50 hover:opacity-100 px-1 rounded focus:outline-none"
+          title="Dismiss"
         >
           ✕
         </button>
@@ -57,3 +51,4 @@ export const StatusBar: React.FC<StatusBarProps> = ({ status, onClear }) => {
     </div>
   );
 };
+

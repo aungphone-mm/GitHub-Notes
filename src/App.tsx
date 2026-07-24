@@ -118,6 +118,12 @@ export default function App() {
     try {
       const noteDetail = await readNote(config, path);
       setCurrentNote(noteDetail);
+      setNotes(prev => prev.map(n => n.path === path ? {
+        ...n,
+        title: noteDetail.title || n.title,
+        tags: noteDetail.tags || n.tags,
+        content: noteDetail.content
+      } : n));
       setStatus({
         type: 'idle',
         message: `Loaded ${path} (SHA: ${noteDetail.sha.substring(0, 7)})`
@@ -183,6 +189,12 @@ export default function App() {
       // Re-read file to synchronize updated SHA
       const freshNote = await readNote(config, path);
       setCurrentNote(freshNote);
+      setNotes(prev => prev.map(n => n.path === path ? {
+        ...n,
+        title: freshNote.title || n.title,
+        tags: freshNote.tags || n.tags,
+        content: freshNote.content
+      } : n));
     } catch (err: any) {
       if (err instanceof GitHubApiError && err.status === 409) {
         setConflictError(err.message);
@@ -346,6 +358,7 @@ export default function App() {
             selectedPath={selectedPath}
             onSelectNote={handleSelectNote}
             onNewNote={handleNewNote}
+            onRefresh={handleLoadNotes}
             isLoading={isLoading}
             notesFolder={config.notesFolder || 'notes'}
           />
