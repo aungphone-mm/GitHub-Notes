@@ -586,6 +586,7 @@ export default function App() {
                 isLoading={isLoading}
                 notesFolder={config.notesFolder || 'notes'}
                 onToggleFavorite={handleToggleFavorite}
+                config={config}
               />
             </div>
 

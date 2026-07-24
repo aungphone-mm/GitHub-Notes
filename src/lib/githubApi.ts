@@ -330,3 +330,38 @@ export async function deleteNote(
     commitMessage
   };
 }
+
+/**
+ * Search notes in repository using GitHub Code Search API (/search/code).
+ */
+export async function searchNotesCode(
+  config: AppConfig,
+  query: string
+): Promise<{ path: string; name: string; sha: string; htmlUrl?: string }[]> {
+  if (!query.trim()) return [];
+
+  let folderPrefix = (config.notesFolder || 'notes').trim().replace(/^\/+|\/+$/g, '');
+  let q = `${query.trim()} repo:${config.owner.trim()}/${config.repo.trim()} extension:md`;
+  if (folderPrefix) {
+    q += ` path:${folderPrefix}`;
+  }
+
+  const endpoint = `/search/code?q=${encodeURIComponent(q)}`;
+  try {
+    const data = await ghFetch(config, endpoint);
+
+    if (!data || !Array.isArray(data.items)) {
+      return [];
+    }
+
+    return data.items.map((item: any) => ({
+      path: item.path,
+      name: item.name,
+      sha: item.sha,
+      htmlUrl: item.html_url
+    }));
+  } catch (err) {
+    console.warn('GitHub /search/code query failed or unindexed repo:', err);
+    throw err;
+  }
+}

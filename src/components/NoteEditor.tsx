@@ -3,7 +3,8 @@ import { AppConfig, NoteDetail } from '../types';
 import { slugify } from '../lib/slug';
 import { serializeNoteContent } from '../lib/frontmatter';
 import { MarkdownViewer } from './MarkdownViewer';
-import { AlertTriangle, RefreshCw, Edit3, Columns, Eye } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Edit3, Columns, Eye, LayoutTemplate, Sparkles, X, Check } from 'lucide-react';
+import { NOTE_TEMPLATES, NoteTemplate } from '../lib/templates';
 
 interface NoteEditorProps {
   config: AppConfig;
@@ -37,6 +38,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [content, setContent] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateMode, setTemplateMode] = useState<'replace' | 'append'>('replace');
+  const [selectedTemplate, setSelectedTemplate] = useState<NoteTemplate>(NOTE_TEMPLATES[0]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Sync editor fields whenever selected note changes
   useEffect(() => {
@@ -52,6 +57,46 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     }
     setShowDeleteConfirm(false);
   }, [currentNote]);
+
+  const handleApplyTemplate = (tpl: NoteTemplate) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const generatedContent = tpl.getContent(todayStr);
+
+    if (templateMode === 'replace' || !content.trim()) {
+      if (!title.trim() || templateMode === 'replace') {
+        const defaultTitleFormatted = tpl.id === 'daily_journal'
+          ? `${tpl.defaultTitle} - ${todayStr}`
+          : tpl.defaultTitle;
+        setTitle(defaultTitleFormatted);
+      }
+
+      if (!tagsInput.trim() || templateMode === 'replace') {
+        setTagsInput(tpl.defaultTags.join(', '));
+      } else {
+        const existingTags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+        const merged = Array.from(new Set([...existingTags, ...tpl.defaultTags]));
+        setTagsInput(merged.join(', '));
+      }
+
+      setContent(generatedContent);
+    } else {
+      // Append mode
+      setContent(prev => (prev ? `${prev}\n\n${generatedContent}` : generatedContent));
+
+      const existingTags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+      const merged = Array.from(new Set([...existingTags, ...tpl.defaultTags]));
+      setTagsInput(merged.join(', '));
+    }
+
+    setIsTemplateModalOpen(false);
+    setToastMessage(`Applied "${tpl.name}" template!`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   // Compute live target path
   const targetPath = useMemo(() => {
@@ -151,16 +196,27 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <span className="text-blue-600 dark:text-blue-400 font-bold truncate">{targetPath}</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {onBackToList && (
               <button
                 type="button"
                 onClick={onBackToList}
-                className="md:hidden text-xs text-blue-600 dark:text-blue-400 hover:underline mr-2 font-medium"
+                className="md:hidden text-xs text-blue-600 dark:text-blue-400 hover:underline mr-1 font-medium"
               >
                 ← Notes List
               </button>
             )}
+
+            {/* Template Selector Button */}
+            <button
+              type="button"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors shadow-2xs"
+              title="Insert note boilerplate template"
+            >
+              <LayoutTemplate className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>Templates</span>
+            </button>
 
             <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
               <button
@@ -318,6 +374,158 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               >
                 {isLoading ? 'Deleting...' : 'Confirm Delete'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-emerald-900 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 border border-emerald-700 animate-in fade-in">
+          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Note Template Modal */}
+      {isTemplateModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs z-50 flex items-center justify-center p-3 sm:p-5">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-slate-50/60 dark:bg-gray-800/40">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                  <LayoutTemplate className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">Note Boilerplate Templates</h3>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Select a pre-formatted template to jumpstart your note</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(false)}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Insertion Mode Toggle Bar */}
+            <div className="px-5 py-2.5 bg-blue-50/60 dark:bg-blue-950/30 border-b border-blue-100 dark:border-blue-900/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-semibold text-blue-900 dark:text-blue-200">
+                Application Mode:
+              </span>
+
+              <div className="flex items-center gap-1 bg-white dark:bg-gray-800 p-0.5 rounded-md border border-blue-200 dark:border-blue-900">
+                <button
+                  type="button"
+                  onClick={() => setTemplateMode('replace')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                    templateMode === 'replace'
+                      ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  Replace Note Content
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateMode('append')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                    templateMode === 'append'
+                      ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  Append to Bottom
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content Grid */}
+            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+              {/* Template Selection List (5 cols) */}
+              <div className="md:col-span-5 space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                {NOTE_TEMPLATES.map(tpl => {
+                  const isSelected = selectedTemplate.id === tpl.id;
+
+                  return (
+                    <div
+                      key={tpl.id}
+                      onClick={() => setSelectedTemplate(tpl)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setSelectedTemplate(tpl);
+                        }
+                      }}
+                      className={`p-3 rounded-lg border text-left cursor-pointer transition-all flex items-start gap-2.5 ${
+                        isSelected
+                          ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/20'
+                          : 'bg-white dark:bg-gray-800/80 border-gray-200 dark:border-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <span className="text-xl shrink-0 leading-none pt-0.5">{tpl.icon}</span>
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">{tpl.name}</h4>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-snug">{tpl.description}</p>
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {tpl.defaultTags.map(t => (
+                            <span key={t} className="text-[9px] font-mono bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1 py-0.2 rounded">
+                              #{t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Template Preview Pane (7 cols) */}
+              <div className="md:col-span-7 flex flex-col bg-slate-50 dark:bg-gray-950/80 border border-gray-200 dark:border-gray-800 rounded-lg p-3 max-h-[380px]">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800 dark:text-gray-200">
+                    <span>{selectedTemplate.icon}</span>
+                    <span>{selectedTemplate.name} Preview</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-400">Markdown Format</span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto font-mono text-[11px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap bg-white dark:bg-gray-900 p-3 rounded border border-gray-200/80 dark:border-gray-800 leading-relaxed select-text">
+                  {selectedTemplate.getContent(new Date().toISOString().split('T')[0])}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800/40">
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                Mode: <strong className="text-gray-700 dark:text-gray-200 capitalize">{templateMode}</strong>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateModalOpen(false)}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTemplate(selectedTemplate)}
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-md shadow-2xs transition-colors flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                  <span>Apply "{selectedTemplate.name}" Template</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
