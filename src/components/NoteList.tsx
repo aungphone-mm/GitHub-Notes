@@ -9,7 +9,7 @@ interface NoteListProps {
   onNewNote: () => void;
   onRefresh?: () => void;
   isLoading: boolean;
-  notesFolder: string;
+  notesFolder?: string;
   onToggleFavorite?: (path: string) => void;
 }
 
@@ -20,7 +20,6 @@ export const NoteList: React.FC<NoteListProps> = ({
   onNewNote,
   onRefresh,
   isLoading,
-  notesFolder,
   onToggleFavorite
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,13 +54,14 @@ export const NoteList: React.FC<NoteListProps> = ({
   return (
     <aside className="w-full h-full bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0 transition-colors">
       {/* Top Header Controls */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-800 space-y-2 bg-white dark:bg-gray-900">
+      <div className="p-3 border-b border-gray-200 dark:border-gray-800 space-y-2.5 bg-white dark:bg-gray-900 shrink-0">
         {/* Buttons Row */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onNewNote}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-2xs"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-2xs"
+            title="Create a new note (Ctrl+Enter)"
           >
             <Plus className="w-4 h-4" />
             <span>New Note</span>
@@ -72,7 +72,7 @@ export const NoteList: React.FC<NoteListProps> = ({
               type="button"
               onClick={onRefresh}
               disabled={isLoading}
-              className="p-2 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors shadow-2xs"
+              className="p-1.5 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors shadow-2xs"
               title="Refresh notes from GitHub"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600 dark:text-blue-400' : ''}`} />
@@ -80,7 +80,7 @@ export const NoteList: React.FC<NoteListProps> = ({
           )}
         </div>
 
-        {/* Filter Tabs (All vs Favorites) */}
+        {/* Filter Tabs (All vs Starred) */}
         <div className="flex items-center p-0.5 bg-gray-100 dark:bg-gray-800 rounded-md border border-gray-200/80 dark:border-gray-700/80 text-xs font-medium">
           <button
             type="button"
@@ -124,7 +124,7 @@ export const NoteList: React.FC<NoteListProps> = ({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search notes by title or content..."
+            placeholder="Search notes..."
             className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md focus:bg-white dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
           />
           <Search className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 absolute left-2.5 top-2.5 pointer-events-none" />
@@ -153,9 +153,9 @@ export const NoteList: React.FC<NoteListProps> = ({
             {filterTab === 'favorites' && !searchTerm ? (
               <>
                 <Star className="w-6 h-6 mx-auto text-amber-400/80 fill-amber-400/20 mb-1" />
-                <p className="text-gray-600 dark:text-gray-300 font-semibold">No favorite notes yet</p>
+                <p className="text-gray-600 dark:text-gray-300 font-semibold">No starred notes yet</p>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 font-normal max-w-[220px] mx-auto">
-                  Click the star icon on any note in your list to mark it as a favorite.
+                  Click the star icon on any note in your list to mark it as starred.
                 </p>
               </>
             ) : (
@@ -170,7 +170,7 @@ export const NoteList: React.FC<NoteListProps> = ({
             )}
           </div>
         ) : (
-          filteredNotes.map((note) => {
+          filteredNotes.map(note => {
             const isSelected = selectedPath === note.path;
 
             return (
@@ -193,7 +193,7 @@ export const NoteList: React.FC<NoteListProps> = ({
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-sans-myanmar text-xs font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 flex-1">
+                  <span className="font-sans text-xs font-semibold text-gray-900 dark:text-gray-100 line-clamp-1 flex-1">
                     {note.title || note.name.replace(/\.md$/, '')}
                   </span>
 
@@ -252,5 +252,3 @@ export const NoteList: React.FC<NoteListProps> = ({
     </aside>
   );
 };
-
-
