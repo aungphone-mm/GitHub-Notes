@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppConfig, NoteHeader, NoteDetail, CommitNode, StatusState } from './types';
 import { safeStore } from './lib/storage';
 import { listNotes, readNote, saveNote, appendToDailyLog, deleteNote, GitHubApiError } from './lib/githubApi';
@@ -22,6 +22,66 @@ export default function App() {
     message: 'Ready. Configure repository credentials or select a note.'
   });
   const [conflictError, setConflictError] = useState<string | null>(null);
+
+  // Theme state management
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('github_notes_theme');
+      if (saved === 'dark' || saved === 'light') return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('github_notes_theme', theme);
+  }, [theme]);
+
+  const handleToggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  }, []);
+
+  // Favorites state management
+  const [favoritePaths, setFavoritePaths] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('github_notes_favorites');
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {
+        // ignore
+      }
+    }
+    return new Set();
+  });
+
+  const handleToggleFavorite = useCallback((path: string) => {
+    setFavoritePaths(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      try {
+        localStorage.setItem('github_notes_favorites', JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
+  const notesWithFavorites = useMemo(() => {
+    return notes.map(note => ({
+      ...note,
+      isFavorite: favoritePaths.has(note.path)
+    }));
+  }, [notes, favoritePaths]);
 
   // Update & persist config
   const handleUpdateConfig = useCallback((newConfig: AppConfig) => {
@@ -306,7 +366,7 @@ export default function App() {
   }, [selectedPath, handleSelectNote, handleLoadNotes]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f2f4f7] text-[#111827]">
+    <div className="min-h-screen h-screen flex flex-col bg-[#f2f4f7] dark:bg-gray-950 text-[#111827] dark:text-gray-100 transition-colors">
       {/* Header Config Bar */}
       <Header
         config={config}
@@ -314,6 +374,8 @@ export default function App() {
         onForgetToken={handleForgetToken}
         onConnect={handleLoadNotes}
         isLoading={isLoading}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Global Status Line */}
@@ -323,14 +385,14 @@ export default function App() {
       />
 
       {/* Mobile Screen Toggle Bar (< md) */}
-      <div className="flex md:hidden bg-white border-b border-gray-200 px-3 py-2 gap-2 shadow-2xs z-10">
+      <div className="flex md:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 py-2 gap-2 shadow-2xs z-10">
         <button
           type="button"
           onClick={() => setMobileTab('list')}
           className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md flex items-center justify-center gap-1.5 transition-colors ${
             mobileTab === 'list'
               ? 'bg-blue-600 text-white shadow-2xs'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -342,7 +404,7 @@ export default function App() {
           className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-md flex items-center justify-center gap-1.5 transition-colors ${
             mobileTab === 'editor'
               ? 'bg-blue-600 text-white shadow-2xs'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
           <Edit3 className="w-4 h-4" />
@@ -351,16 +413,17 @@ export default function App() {
       </div>
 
       {/* Main Workspace (Left Sidebar + Note Editor) */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden border-b border-gray-200">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden border-b border-gray-200 dark:border-gray-800">
         <div className={`h-full ${mobileTab === 'list' ? 'block' : 'hidden'} md:block md:w-80 lg:w-96 shrink-0`}>
           <NoteList
-            notes={notes}
+            notes={notesWithFavorites}
             selectedPath={selectedPath}
             onSelectNote={handleSelectNote}
             onNewNote={handleNewNote}
             onRefresh={handleLoadNotes}
             isLoading={isLoading}
             notesFolder={config.notesFolder || 'notes'}
+            onToggleFavorite={handleToggleFavorite}
           />
         </div>
 

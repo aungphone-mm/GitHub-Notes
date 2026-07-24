@@ -16,6 +16,7 @@ export interface NoteHeader {
   tags?: string[];
   isDaily?: boolean;
   content?: string;
+  isFavorite?: boolean;
 }
 
 export interface NoteDetail {

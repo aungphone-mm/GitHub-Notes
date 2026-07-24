@@ -22,7 +22,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ status, onClear }) => {
     <div
       role="status"
       aria-live="polite"
-      className="px-4 py-2 text-xs font-mono bg-[#f8fafc] border-y border-gray-200 flex items-center justify-between gap-2 text-gray-600 select-none"
+      className="px-4 py-2 text-xs font-mono bg-[#f8fafc] dark:bg-gray-900 border-y border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2 text-gray-600 dark:text-gray-300 select-none transition-colors"
     >
       <div className="flex items-center gap-2 overflow-hidden truncate">
         {status.type === 'loading' ? (

@@ -6,6 +6,11 @@
     background-color: #f2f4f7;
     color: #111827;
   }
+  
+  .dark body {
+    background-color: #030712;
+    color: #f9fafb;
+  }
 }
 
 .font-mono-myanmar {
