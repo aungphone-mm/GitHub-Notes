@@ -7,8 +7,9 @@ import { StatusBar } from './components/StatusBar';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
 import { CalendarView } from './components/CalendarView';
+import { HabitTracker } from './components/HabitTracker';
 import { CommitFooter } from './components/CommitFooter';
-import { FileText, Edit3, Calendar } from 'lucide-react';
+import { FileText, Edit3, Calendar, TrendingUp } from 'lucide-react';
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig>(() => safeStore.loadConfig());
@@ -17,8 +18,8 @@ export default function App() {
   const [currentNote, setCurrentNote] = useState<NoteDetail | null>(null);
   const [commits, setCommits] = useState<CommitNode[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<'editor' | 'calendar'>('editor');
-  const [mobileTab, setMobileTab] = useState<'list' | 'calendar' | 'editor'>('list');
+  const [activeView, setActiveView] = useState<'editor' | 'calendar' | 'habits'>('editor');
+  const [mobileTab, setMobileTab] = useState<'list' | 'calendar' | 'editor' | 'habits'>('list');
   const [status, setStatus] = useState<StatusState>({
     type: 'idle',
     message: 'Ready. Configure repository credentials or select a note.'
@@ -442,14 +443,29 @@ export default function App() {
             <Calendar className="w-3.5 h-3.5" />
             <span>Calendar View</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveView('habits')}
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+              activeView === 'habits'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-2xs'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Habit Tracker</span>
+          </button>
         </div>
 
         {/* Desktop Context Label */}
         <div className="hidden md:block text-xs font-mono text-gray-500 dark:text-gray-400">
           {activeView === 'editor' ? (
             selectedPath ? `Editing: ${selectedPath}` : 'Drafting / Reading Note'
-          ) : (
+          ) : activeView === 'calendar' ? (
             'Monthly Calendar & Day Logs'
+          ) : (
+            'Habit Routines & GitHub Actions Planner'
           )}
         </div>
 
@@ -490,6 +506,22 @@ export default function App() {
           <button
             type="button"
             onClick={() => {
+              setMobileTab('habits');
+              setActiveView('habits');
+            }}
+            className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1 transition-colors ${
+              mobileTab === 'habits' || activeView === 'habits'
+                ? 'bg-blue-600 text-white shadow-2xs'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Habits</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
               setMobileTab('editor');
               setActiveView('editor');
             }}
@@ -507,7 +539,16 @@ export default function App() {
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {activeView === 'calendar' || mobileTab === 'calendar' ? (
+        {activeView === 'habits' || mobileTab === 'habits' ? (
+          <div className="w-full h-full flex-1">
+            <HabitTracker
+              notes={notesWithFavorites}
+              selectedPath={selectedPath}
+              onAppendToDailyNote={handleAppendDaily}
+              onNewNoteForDate={handleNewNoteForDate}
+            />
+          </div>
+        ) : activeView === 'calendar' || mobileTab === 'calendar' ? (
           <div className="w-full h-full flex-1">
             <CalendarView
               notes={notesWithFavorites}

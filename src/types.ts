@@ -44,3 +44,15 @@ export interface StatusState {
   message: string;
   detail?: string;
 }
+
+export interface Habit {
+  id: string;
+  name: string;
+  category: 'Productivity' | 'Health' | 'Mindfulness' | 'Learning' | 'Routine';
+  icon?: string;
+  color?: string;
+  targetPerWeek?: number;
+}
+
+export type HabitCompletions = Record<string, string[]>; // dateStr ('YYYY-MM-DD') -> array of habit IDs completed
+
