@@ -3,7 +3,7 @@ import { AppConfig, NoteDetail } from '../types';
 import { slugify } from '../lib/slug';
 import { serializeNoteContent } from '../lib/frontmatter';
 import { MarkdownViewer } from './MarkdownViewer';
-import { AlertTriangle, RefreshCw, Edit3, Columns, Eye, LayoutTemplate, Sparkles, X, Check } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Edit3, Columns, Eye, LayoutTemplate, Sparkles, X, Check, Trash2 } from 'lucide-react';
 import { NOTE_TEMPLATES, NoteTemplate } from '../lib/templates';
 
 interface NoteEditorProps {
@@ -11,7 +11,7 @@ interface NoteEditorProps {
   currentNote: NoteDetail | null;
   onSaveNote: (path: string, rawContent: string, existingSha?: string, isNew?: boolean) => Promise<void>;
   onAppendToDaily: (text: string) => Promise<void>;
-  onDeleteNote: (path: string, sha: string) => Promise<void>;
+  onDeleteNote: (path: string, sha?: string) => Promise<void>;
   onNewNote: () => void;
   isLoading: boolean;
   conflictError: string | null;
@@ -160,8 +160,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!currentNote || !currentNote.sha || isLoading) return;
-    await onDeleteNote(currentNote.path, currentNote.sha);
+    if (isLoading) return;
+    if (currentNote && currentNote.path) {
+      await onDeleteNote(currentNote.path, currentNote.sha);
+    } else {
+      onNewNote();
+    }
     setShowDeleteConfirm(false);
   };
 
@@ -216,6 +220,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             >
               <LayoutTemplate className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>Templates</span>
+            </button>
+
+            {/* Delete / Discard Header Button */}
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-red-50 dark:bg-red-950/80 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/80 hover:bg-red-100 dark:hover:bg-red-900 transition-colors shadow-2xs"
+              title={currentNote?.path ? "Delete note from repository" : "Discard current draft"}
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" />
+              <span className="hidden sm:inline">{currentNote?.path ? "Delete" : "Discard"}</span>
             </button>
 
             <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
@@ -336,14 +352,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
-              disabled={isLoading || !currentNote?.sha}
-              className={`px-4 py-2 text-xs font-semibold rounded-md border transition-colors ${
-                !currentNote?.sha
-                  ? 'text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-800 cursor-not-allowed'
-                  : 'text-red-500 dark:text-red-400 border-red-200 dark:border-red-900/60 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/30'
-              }`}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-md border text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/60 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shadow-2xs"
             >
-              Delete Note
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{currentNote?.path ? "Delete Note" : "Discard Draft"}</span>
             </button>
           </div>
         </div>
@@ -353,10 +366,21 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-200 dark:border-gray-800 space-y-4">
-            <h3 className="text-base font-bold text-red-600 dark:text-red-400">Delete Note?</h3>
+            <h3 className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <span>{currentNote?.path ? 'Delete Note?' : 'Discard Draft?'}</span>
+            </h3>
             <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed font-sans">
-              Are you sure you want to delete <span className="font-mono font-bold text-gray-900 dark:text-gray-100">{currentNote?.path}</span>?
-              This will create a real <code className="font-mono bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">DELETE</code> commit on GitHub.
+              {currentNote?.path ? (
+                <>
+                  Are you sure you want to delete <span className="font-mono font-bold text-gray-900 dark:text-gray-100">{targetPath}</span>?
+                  This will create a real <code className="font-mono bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">DELETE</code> commit on your GitHub repository.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to discard this unsaved note draft?
+                </>
+              )}
             </p>
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
               <button
@@ -372,7 +396,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 disabled={isLoading}
                 className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 rounded-md shadow-2xs transition-colors"
               >
-                {isLoading ? 'Deleting...' : 'Confirm Delete'}
+                {isLoading ? 'Processing...' : (currentNote?.path ? 'Confirm Delete' : 'Confirm Discard')}
               </button>
             </div>
           </div>

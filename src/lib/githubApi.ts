@@ -305,17 +305,28 @@ export async function appendToDailyLog(
 export async function deleteNote(
   config: AppConfig,
   path: string,
-  sha: string
+  sha?: string
 ): Promise<{ commitSha?: string; commitMessage: string }> {
+  let fileSha = sha;
   const encodedPath = encodePathSegments(path);
   const endpoint = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/contents/${encodedPath}`;
+  const branch = encodeURIComponent(config.branch || 'main');
+
+  if (!fileSha) {
+    const existingFile = await ghFetch(config, `${endpoint}?ref=${branch}`);
+    if (existingFile && existingFile.sha) {
+      fileSha = existingFile.sha;
+    } else {
+      throw new GitHubApiError(404, 'Could not locate note on repository to delete.');
+    }
+  }
 
   const filename = path.split('/').pop() || path;
   const commitMessage = `note: delete ${filename}`;
 
   const body = {
     message: commitMessage,
-    sha,
+    sha: fileSha,
     branch: config.branch || 'main'
   };
 

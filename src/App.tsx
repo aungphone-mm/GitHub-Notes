@@ -348,7 +348,7 @@ export default function App() {
   }, [config, addSessionCommit]);
 
   // Delete Note
-  const handleDeleteNote = useCallback(async (path: string, sha: string) => {
+  const handleDeleteNote = useCallback(async (path: string, sha?: string) => {
     setIsLoading(true);
     setConflictError(null);
     setStatus({
@@ -358,7 +358,7 @@ export default function App() {
 
     try {
       const result = await deleteNote(config, path, sha);
-      const commitSha = result.commitSha || sha;
+      const commitSha = result.commitSha || sha || 'deleted';
 
       addSessionCommit(
         commitSha,
@@ -369,7 +369,7 @@ export default function App() {
 
       setStatus({
         type: 'success',
-        message: `Deleted note: ${path} (${commitSha.substring(0, 7)})`
+        message: `Deleted note: ${path} (${commitSha.length > 7 ? commitSha.substring(0, 7) : commitSha})`
       });
 
       handleNewNote();
@@ -586,6 +586,7 @@ export default function App() {
                 isLoading={isLoading}
                 notesFolder={config.notesFolder || 'notes'}
                 onToggleFavorite={handleToggleFavorite}
+                onDeleteNote={handleDeleteNote}
                 config={config}
               />
             </div>

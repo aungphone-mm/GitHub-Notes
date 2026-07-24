@@ -16,7 +16,8 @@ import {
   Tag,
   Hash,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Trash2
 } from 'lucide-react';
 import { searchNotesCode } from '../lib/githubApi';
 
@@ -29,6 +30,7 @@ interface NoteListProps {
   isLoading: boolean;
   notesFolder?: string;
   onToggleFavorite?: (path: string) => void;
+  onDeleteNote?: (path: string, sha?: string) => void;
   config?: AppConfig;
 }
 
@@ -40,6 +42,7 @@ export const NoteList: React.FC<NoteListProps> = ({
   onRefresh,
   isLoading,
   onToggleFavorite,
+  onDeleteNote,
   config
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +50,7 @@ export const NoteList: React.FC<NoteListProps> = ({
   const [useGithubSearch, setUseGithubSearch] = useState(true);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isTagCloudExpanded, setIsTagCloudExpanded] = useState(true);
+  const [noteToDelete, setNoteToDelete] = useState<{ path: string; sha?: string } | null>(null);
 
   // GitHub Code Search state
   const [isSearchingCode, setIsSearchingCode] = useState(false);
@@ -524,6 +528,21 @@ export const NoteList: React.FC<NoteListProps> = ({
                         />
                       </button>
                     )}
+
+                    {onDeleteNote && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNoteToDelete({ path: note.path, sha: note.sha });
+                        }}
+                        className="p-1 rounded text-gray-300 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        title="Delete note"
+                        aria-label="Delete note"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -549,6 +568,42 @@ export const NoteList: React.FC<NoteListProps> = ({
           })
         )}
       </div>
+
+      {/* Note Deletion Modal Confirmation */}
+      {noteToDelete && onDeleteNote && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-200 dark:border-gray-800 space-y-4">
+            <h3 className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <span>Delete Note?</span>
+            </h3>
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed font-sans">
+              Are you sure you want to delete <span className="font-mono font-bold text-gray-900 dark:text-gray-100">{noteToDelete.path}</span>?
+              This will create a real <code className="font-mono bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 px-1 py-0.5 rounded">DELETE</code> commit on your GitHub repository.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+              <button
+                type="button"
+                onClick={() => setNoteToDelete(null)}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const target = noteToDelete;
+                  setNoteToDelete(null);
+                  await onDeleteNote(target.path, target.sha);
+                }}
+                className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500 rounded-md shadow-2xs transition-colors"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 };
