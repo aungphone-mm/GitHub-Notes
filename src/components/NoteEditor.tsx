@@ -430,7 +430,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       {/* Note Template Modal */}
       {isTemplateModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs z-50 flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-3xl w-full max-h-[90dvh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
             {/* Modal Header */}
             <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-slate-50/60 dark:bg-gray-800/40">
               <div className="flex items-center gap-2">
@@ -483,10 +483,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               </div>
             </div>
 
-            {/* Modal Content Grid */}
-            <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
+            {/* Modal Content Grid.
+                On mobile the modal body is the only scroller: the list and the
+                preview get their own scroll boxes from md up, because nested
+                scroll areas on a phone leave the template cards half-clipped. */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
               {/* Template Selection List (5 cols) */}
-              <div className="md:col-span-5 space-y-2 max-h-[380px] overflow-y-auto pr-1">
+              <div className="md:col-span-5 space-y-2 md:max-h-[380px] md:overflow-y-auto md:pr-1">
                 {NOTE_TEMPLATES.map(tpl => {
                   const isSelected = selectedTemplate.id === tpl.id;
 
@@ -527,14 +530,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 })}
               </div>
 
-              {/* Template Preview Pane (7 cols) */}
-              <div className="md:col-span-7 flex flex-col bg-slate-50 dark:bg-gray-950/80 border border-gray-200 dark:border-gray-800 rounded-lg p-3 max-h-[380px]">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200 dark:border-gray-800">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800 dark:text-gray-200">
-                    <span>{selectedTemplate.icon}</span>
-                    <span>{selectedTemplate.name} Preview</span>
+              {/* Template Preview Pane (7 cols). Capped on mobile so it cannot
+                  push the template cards off the screen. */}
+              <div className="md:col-span-7 flex flex-col bg-slate-50 dark:bg-gray-950/80 border border-gray-200 dark:border-gray-800 rounded-lg p-3 max-h-56 md:max-h-[380px]">
+                <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-800 dark:text-gray-200 min-w-0">
+                    <span className="shrink-0">{selectedTemplate.icon}</span>
+                    <span className="truncate">{selectedTemplate.name} Preview</span>
                   </div>
-                  <span className="text-[10px] font-mono text-gray-400">Markdown Format</span>
+                  <span className="text-[10px] font-mono text-gray-400 shrink-0 hidden sm:inline">Markdown Format</span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto font-mono text-[11px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap bg-white dark:bg-gray-900 p-3 rounded border border-gray-200/80 dark:border-gray-800 leading-relaxed select-text">
@@ -544,26 +548,28 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-800/40">
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            <div className="px-4 sm:px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 bg-gray-50 dark:bg-gray-800/40">
+              <span className="text-[11px] text-gray-500 dark:text-gray-400 shrink-0">
                 Mode: <strong className="text-gray-700 dark:text-gray-200 capitalize">{templateMode}</strong>
               </span>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setIsTemplateModalOpen(false)}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+                  className="px-3.5 py-2 sm:py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors shrink-0"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={() => handleApplyTemplate(selectedTemplate)}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-md shadow-2xs transition-colors flex items-center gap-1.5"
+                  className="flex-1 sm:flex-none min-w-0 px-4 py-2 sm:py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-md shadow-2xs transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-blue-200" />
-                  <span>Apply "{selectedTemplate.name}" Template</span>
+                  <Sparkles className="w-3.5 h-3.5 text-blue-200 shrink-0" />
+                  <span className="truncate">
+                    Apply "{selectedTemplate.name}"<span className="hidden sm:inline"> Template</span>
+                  </span>
                 </button>
               </div>
             </div>

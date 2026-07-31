@@ -426,6 +426,8 @@ jobs:
   open:
     runs-on: ubuntu-latest
     permissions:
+      # checkout needs contents:read to clone a private repository.
+      contents: read
       issues: write
     steps:
       - uses: actions/checkout@v4
