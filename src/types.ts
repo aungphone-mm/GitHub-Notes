@@ -70,3 +70,24 @@ export interface HabitData {
 
 export type HabitSyncState = 'offline' | 'loading' | 'saving' | 'synced' | 'error';
 
+export interface IssueLabel {
+  name: string;
+  color: string;
+}
+
+/**
+ * A repository issue rendered as a row in the planner table.
+ * `checklistDone` / `checklistTotal` come from the task list in the issue body.
+ */
+export interface IssueRow {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  htmlUrl: string;
+  labels: IssueLabel[];
+  comments: number;
+  updatedAt: string;
+  checklistDone: number;
+  checklistTotal: number;
+}
+

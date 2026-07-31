@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { AppConfig, Habit, HabitCompletions, HabitData, HabitSyncState, NoteHeader } from '../types';
+import {
+  AppConfig,
+  Habit,
+  HabitCompletions,
+  HabitData,
+  HabitSyncState,
+  IssueRow,
+  NoteHeader
+} from '../types';
 import {
   DEFAULT_HABITS,
   HABIT_DATA_VERSION,
@@ -11,7 +19,13 @@ import {
   saveLocalHabits,
   saveLocalMeta
 } from '../lib/habits';
-import { GitHubApiError, habitsFilePath, readHabitData, writeHabitData } from '../lib/githubApi';
+import {
+  GitHubApiError,
+  habitsFilePath,
+  listIssues,
+  readHabitData,
+  writeHabitData
+} from '../lib/githubApi';
 import {
   Check,
   X,
@@ -22,7 +36,10 @@ import {
   FileCode,
   Github,
   RefreshCw,
-  Bot
+  Bot,
+  MessageSquare,
+  ExternalLink,
+  Inbox
 } from 'lucide-react';
 
 interface HabitTrackerProps {
@@ -227,6 +244,48 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configReady, config.owner, config.repo, config.branch, config.notesFolder, config.token]);
 
+  // ---------------------------------------------------------------------------
+  // GitHub Issues Planner
+  // ---------------------------------------------------------------------------
+  const [issues, setIssues] = useState<IssueRow[]>([]);
+  const [issuesState, setIssuesState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+  const [issuesMessage, setIssuesMessage] = useState<string | null>(null);
+  const [issueLabelFilter, setIssueLabelFilter] = useState('daily-planner');
+  const [issueStateFilter, setIssueStateFilter] = useState<'open' | 'closed' | 'all'>('open');
+
+  const fetchIssues = useCallback(async () => {
+    if (!configReady) {
+      setIssuesState('error');
+      setIssuesMessage('Connect a repository (Owner, Repo and Token) to fetch issues.');
+      return;
+    }
+
+    setIssuesState('loading');
+    setIssuesMessage(null);
+
+    try {
+      const rows = await listIssues(config, {
+        labels: issueLabelFilter,
+        state: issueStateFilter
+      });
+
+      if (!isMountedRef.current) return;
+      setIssues(rows);
+      setIssuesState('loaded');
+      setIssuesMessage(
+        rows.length === 0
+          ? `No ${issueStateFilter === 'all' ? '' : issueStateFilter + ' '}issues${
+              issueLabelFilter.trim() ? ` labelled "${issueLabelFilter.trim()}"` : ''
+            } in ${config.owner}/${config.repo}.`
+          : null
+      );
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setIssuesState('error');
+      setIssuesMessage(describeError(err));
+    }
+  }, [config, configReady, issueLabelFilter, issueStateFilter]);
+
   /**
    * Called after every local edit: stamps the change and schedules one commit.
    */
@@ -377,24 +436,31 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
     }
   };
 
-  // Code snippets for GitHub Action planner
+  // Code snippets for the GitHub Action planner.
+  // Kept in step with the committed .github/workflows/daily-planner.yml.
   const yamlWorkflowCode = `name: daily-planner
+
 on:
-  schedule: [{ cron: '30 23 * * *' }] # Yangon UTC+6:30 = 23:30 UTC day before
+  # Manual only: run from the Actions tab when a planner issue is wanted.
   workflow_dispatch:
 
 jobs:
   open:
     runs-on: ubuntu-latest
-    permissions: { issues: write }
+    permissions:
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: JasonEtco/create-an-issue@v2
-        env: { GITHUB_TOKEN: '\${{ secrets.GITHUB_TOKEN }}' }
-        with: { filename: .github/PLANNER.md }`;
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        with:
+          filename: .github/PLANNER.md`;
 
+  // Mirrors .github/PLANNER.md, but with the habit list built from the habits
+  // actually being tracked so a copied template is already personalised.
   const plannerMdTemplate = `---
-title: "Daily Planner - %DATE%"
+title: "Daily Planner - {{ date | date('YYYY-MM-DD') }}"
 labels: ["daily-planner", "habit-tracker"]
 ---
 
@@ -511,10 +577,16 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
             GITHUB PLANNER ISSUES
           </div>
           <div className="text-3xl font-extrabold text-slate-900 dark:text-gray-100 tracking-tight font-sans">
-            {todayCompletedCount > 0 ? '1' : '0'}
+            {issuesState === 'loaded' ? issues.length : '—'}
           </div>
           <div className="text-xs text-slate-500 dark:text-gray-400 font-sans">
-            Sync with GitHub
+            {issuesState === 'loaded'
+              ? `${issueStateFilter === 'all' ? 'All' : issueStateFilter === 'open' ? 'Open' : 'Closed'} issues fetched`
+              : issuesState === 'loading'
+                ? 'Fetching issues...'
+                : issuesState === 'error'
+                  ? 'Fetch failed'
+                  : 'Not fetched yet'}
           </div>
         </div>
       </div>
@@ -723,17 +795,36 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
             <span>GitHub Issues Planner ("Issues as Rows")</span>
           </h2>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={issueLabelFilter}
+              onChange={(e) => setIssueLabelFilter(e.target.value)}
+              placeholder="label filter (blank = all)"
+              title="Comma-separated labels, e.g. daily-planner,habit-tracker"
+              className="px-2.5 py-1.5 w-44 text-xs font-mono bg-slate-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-gray-100"
+            />
+
+            <select
+              value={issueStateFilter}
+              onChange={(e) => setIssueStateFilter(e.target.value as 'open' | 'closed' | 'all')}
+              className="px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-gray-200"
+            >
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="all">All</option>
+            </select>
+
             <button
               type="button"
-              onClick={() => {
-                setPostStatusMessage('Issues Refreshed!');
-                setTimeout(() => setPostStatusMessage(null), 2000);
-              }}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5 shadow-2xs"
+              onClick={fetchIssues}
+              disabled={issuesState === 'loading'}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-60"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-              <span>Fetch Issues</span>
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-slate-500 ${issuesState === 'loading' ? 'animate-spin' : ''}`}
+              />
+              <span>{issuesState === 'loading' ? 'Fetching...' : 'Fetch Issues'}</span>
             </button>
 
             <button
@@ -747,36 +838,194 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
           </div>
         </div>
 
+        {/* Issue Rows */}
+        {issuesMessage && (
+          <div
+            className={`text-[11px] font-mono px-3 py-2 rounded-lg border ${
+              issuesState === 'error'
+                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900'
+                : 'bg-slate-50 dark:bg-gray-800/50 text-slate-500 dark:text-gray-400 border-gray-200 dark:border-gray-800'
+            }`}
+          >
+            {issuesMessage}
+          </div>
+        )}
+
+        {issues.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+            <table className="w-full text-left border-collapse min-w-[680px]">
+              <thead>
+                <tr className="bg-slate-100/80 dark:bg-gray-800/80 text-slate-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-800 font-sans text-xs">
+                  <th className="p-3 font-bold w-16 text-center">#</th>
+                  <th className="p-3 font-bold">Title</th>
+                  <th className="p-3 font-bold w-52">Labels</th>
+                  <th className="p-3 font-bold w-32 text-center">Tasks</th>
+                  <th className="p-3 font-bold w-24 text-center">Updated</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-xs font-sans">
+                {issues.map(issue => {
+                  const pct =
+                    issue.checklistTotal > 0
+                      ? Math.round((issue.checklistDone / issue.checklistTotal) * 100)
+                      : 0;
+
+                  return (
+                    <tr
+                      key={issue.number}
+                      className="hover:bg-slate-50 dark:hover:bg-gray-800/40 transition-colors"
+                    >
+                      <td className="p-3 text-center font-mono text-slate-500 dark:text-gray-400">
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${
+                            issue.state === 'open' ? 'bg-emerald-500' : 'bg-purple-500'
+                          }`}
+                          title={issue.state}
+                        />
+                        {issue.number}
+                      </td>
+
+                      <td className="p-3 font-semibold text-slate-800 dark:text-gray-200">
+                        <a
+                          href={issue.htmlUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline inline-flex items-center gap-1.5"
+                        >
+                          <span>{issue.title}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0 opacity-60" />
+                        </a>
+                        {issue.comments > 0 && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-slate-400 dark:text-gray-500 font-normal">
+                            <MessageSquare className="w-3 h-3" />
+                            {issue.comments}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="p-3">
+                        <div className="flex flex-wrap gap-1">
+                          {issue.labels.map(label => (
+                            <span
+                              key={label.name}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold border"
+                              style={{
+                                backgroundColor: `#${label.color}22`,
+                                borderColor: `#${label.color}66`
+                              }}
+                            >
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+
+                      <td className="p-3 text-center">
+                        {issue.checklistTotal > 0 ? (
+                          <div className="space-y-1">
+                            <div className="font-semibold text-slate-700 dark:text-gray-300">
+                              {issue.checklistDone}/{issue.checklistTotal}
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-500 rounded-full transition-all"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 dark:text-gray-600">-</span>
+                        )}
+                      </td>
+
+                      <td className="p-3 text-center text-slate-500 dark:text-gray-400 font-mono">
+                        {issue.updatedAt ? issue.updatedAt.split('T')[0] : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {issuesState === 'idle' && !issuesMessage && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 px-3 py-4 justify-center border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+            <Inbox className="w-4 h-4" />
+            <span>Click "Fetch Issues" to load planner issues from your repository.</span>
+          </div>
+        )}
+
         {/* Info Banner / Workflow Preview */}
         {showWorkflowConfig ? (
-          <div className="bg-slate-900 text-white rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs font-mono text-gray-400 border-b border-gray-800 pb-2">
-              <div className="flex items-center gap-1.5">
-                <FileCode className="w-4 h-4 text-amber-400" />
-                <span>.github/workflows/daily-planner.yml & .github/PLANNER.md</span>
+          <div className="bg-slate-900 text-white rounded-xl p-4 space-y-4">
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Both files are already committed in this repository. Copy them into another repo to
+              set up the same automation there — the workflow reads the template, so it needs both.
+            </p>
+
+            {/* Workflow YAML */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono text-gray-400 border-b border-gray-800 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <FileCode className="w-4 h-4 text-amber-400" />
+                  <span>.github/workflows/daily-planner.yml</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(yamlWorkflowCode, 'workflow')}
+                  className="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-[11px] text-gray-200 flex items-center gap-1"
+                >
+                  {copiedSection === 'workflow' ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy YAML</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => copyToClipboard(yamlWorkflowCode, 'workflow')}
-                className="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-[11px] text-gray-200 flex items-center gap-1"
-              >
-                {copiedSection === 'workflow' ? (
-                  <>
-                    <Check className="w-3 h-3 text-emerald-400" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    <span>Copy YAML</span>
-                  </>
-                )}
-              </button>
+
+              <pre className="text-xs font-mono text-emerald-300 overflow-x-auto p-3 bg-black/60 rounded border border-gray-800 leading-relaxed">
+                {yamlWorkflowCode}
+              </pre>
             </div>
 
-            <pre className="text-xs font-mono text-emerald-300 overflow-x-auto p-3 bg-black/60 rounded border border-gray-800 leading-relaxed">
-              {yamlWorkflowCode}
-            </pre>
+            {/* Issue template referenced by the workflow */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono text-gray-400 border-b border-gray-800 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <FileCode className="w-4 h-4 text-sky-400" />
+                  <span>.github/PLANNER.md</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(plannerMdTemplate, 'planner')}
+                  className="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-[11px] text-gray-200 flex items-center gap-1"
+                >
+                  {copiedSection === 'planner' ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy Template</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <pre className="text-xs font-mono text-sky-200 overflow-x-auto p-3 bg-black/60 rounded border border-gray-800 leading-relaxed">
+                {plannerMdTemplate}
+              </pre>
+            </div>
           </div>
         ) : (
           <div className="bg-slate-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/80 dark:border-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -786,13 +1035,16 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
                 <span>Daily Planner Issue Automation</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-gray-400">
-                Each note is stored as a GitHub issue. Labels act as tags, comments are journal logs, and a GitHub Action opens your daily planner automatically on a cron schedule!
+                Run the <span className="font-mono">daily-planner</span> action from the Actions tab
+                to open a planner issue from <span className="font-mono">.github/PLANNER.md</span>.
+                Its task list becomes the Tasks column below, labels act as tags, and comments are
+                journal logs. Tick items on GitHub, then re-fetch here.
               </p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                label: note
+                label: daily-planner
               </span>
               <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                 label: habit-tracker
