@@ -176,23 +176,26 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   }, [selectedDateStr]);
 
   return (
-    <div className="w-full h-full bg-white dark:bg-gray-900 flex flex-col md:flex-row overflow-hidden transition-colors">
+    // On mobile the whole view is a single scroll column: the calendar keeps its
+    // natural height (so the month header and every week stay together) and the
+    // day panel follows underneath. From md up the two panes scroll separately.
+    <div className="w-full h-full bg-white dark:bg-gray-900 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden transition-colors">
       {/* Left Main Section: Monthly Calendar Grid */}
-      <div className="flex-1 p-4 md:p-6 flex flex-col overflow-y-auto border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800">
+      <div className="shrink-0 md:shrink md:flex-1 p-3 sm:p-4 md:p-6 flex flex-col md:overflow-y-auto border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800">
         {/* Calendar Header Controls */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 font-sans tracking-tight">
+        <div className="flex items-center justify-between gap-2 mb-3 md:mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <CalendarIcon className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 font-sans tracking-tight truncate">
               {monthLabel}
             </h2>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={handleToday}
-              className="px-3 py-1.5 text-xs font-mono font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
+              className="px-3 py-2 md:py-1.5 text-xs font-mono font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors"
               title="Jump to today"
             >
               Today
@@ -200,33 +203,36 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md transition-colors"
+              className="p-2 md:p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md transition-colors"
               title="Previous month"
+              aria-label="Previous month"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md transition-colors"
+              className="p-2 md:p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md transition-colors"
               title="Next month"
+              aria-label="Next month"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Day of Week Headers */}
-        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+        {/* Day of Week Headers (single letters on narrow screens) */}
+        <div className="grid grid-cols-7 gap-1 md:gap-1.5 text-center mb-1.5 md:mb-2">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-xs font-mono font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-1">
-              {day}
+            <div key={day} className="text-[10px] md:text-xs font-mono font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider py-1">
+              <span className="md:hidden">{day.charAt(0)}</span>
+              <span className="hidden md:inline">{day}</span>
             </div>
           ))}
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1.5 flex-1 min-h-[320px]">
+        <div className="grid grid-cols-7 gap-1 md:gap-1.5 md:flex-1 md:min-h-[320px]">
           {calendarDays.map(({ dateStr, dayNumber, isCurrentMonth, isToday }) => {
             const dayNotes = notesByDate.get(dateStr) || [];
             const hasNotes = dayNotes.length > 0;
@@ -236,14 +242,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const habitsDone = completedOn(completions, dateStr, habits).length;
             const allHabitsDone = habits.length > 0 && habitsDone === habits.length;
 
+            // Spoken/hover summary — the mobile cell only shows dots, so this is
+            // where the exact counts stay available.
+            const summary = [
+              dateStr,
+              hasNotes ? `${dayNotes.length} ${dayNotes.length === 1 ? 'note' : 'notes'}` : 'no notes',
+              habits.length > 0 ? `${habitsDone} of ${habits.length} habits completed` : ''
+            ].filter(Boolean).join(' — ');
+
             return (
               <button
                 key={dateStr}
                 type="button"
                 onClick={() => setSelectedDateStr(dateStr)}
-                className={`relative p-2 rounded-lg text-left transition-all flex flex-col justify-between border ${
+                title={summary}
+                aria-label={summary}
+                aria-pressed={isSelected}
+                className={`relative overflow-hidden aspect-square md:aspect-auto p-1 md:p-2 rounded-lg text-left transition-all flex flex-col items-center justify-center md:items-stretch md:justify-between border ${
                   isSelected
-                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50/90 dark:bg-blue-950/70 shadow-sm font-bold ring-2 ring-blue-500/20'
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50/90 dark:bg-blue-950/70 shadow-sm font-bold ring-2 ring-inset ring-blue-500/30'
                     : isToday
                     ? 'border-amber-400 dark:border-amber-500/80 bg-amber-50/60 dark:bg-amber-950/40'
                     : isCurrentMonth
@@ -251,9 +268,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     : 'border-transparent text-gray-300 dark:text-gray-700 bg-gray-50/20 dark:bg-gray-950/20 opacity-60'
                 }`}
               >
-                <div className="flex items-center justify-between w-full">
+                {hasFavorite && (
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0 absolute top-0.5 right-0.5 md:hidden" />
+                )}
+
+                <div className="flex items-center justify-center md:justify-between w-full">
                   <span
-                    className={`text-xs font-mono ${
+                    className={`text-sm md:text-xs font-mono leading-none ${
                       isToday
                         ? 'text-amber-700 dark:text-amber-400 font-extrabold'
                         : isSelected
@@ -267,13 +288,30 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   </span>
 
                   {hasFavorite && (
-                    <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0 hidden md:block" />
                   )}
                 </div>
 
-                {/* Notes + Habit Indicator Pills */}
+                {/* Mobile: compact dots — text pills never fit a phone-width cell.
+                    The row is always rendered so day numbers stay aligned. */}
+                <div className="md:hidden mt-1 flex items-center justify-center gap-1 h-1.5">
+                  {hasNotes && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400" />
+                  )}
+                  {habitsDone > 0 && (
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        allHabitsDone
+                          ? 'bg-emerald-500 dark:bg-emerald-400'
+                          : 'bg-amber-500 dark:bg-amber-400'
+                      }`}
+                    />
+                  )}
+                </div>
+
+                {/* Desktop: Notes + Habit Indicator Pills */}
                 {(hasNotes || habitsDone > 0) && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                  <div className="mt-1 hidden md:flex flex-wrap items-center gap-1">
                     {hasNotes && (
                       <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-md bg-blue-100 dark:bg-blue-900/80 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
                         {dayNotes.length} {dayNotes.length === 1 ? 'note' : 'notes'}
@@ -282,7 +320,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                     {habitsDone > 0 && (
                       <span
-                        title={`${habitsDone} of ${habits.length} habits completed`}
                         className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-bold rounded-md border ${
                           allHabitsDone
                             ? 'bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800'
@@ -299,16 +336,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             );
           })}
         </div>
+
+        {/* Legend for the mobile dots */}
+        <div className="md:hidden mt-3 flex items-center justify-center gap-3 text-[10px] font-mono text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400" /> notes
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" /> some habits
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" /> all habits
+          </span>
+        </div>
       </div>
 
       {/* Right Side Section: Selected Date Notes & Quick Action */}
-      <div className="w-full md:w-80 lg:w-96 p-4 md:p-6 flex flex-col space-y-4 bg-gray-50/50 dark:bg-gray-950/40 overflow-y-auto shrink-0">
+      <div className="w-full md:w-80 lg:w-96 p-3 sm:p-4 md:p-6 flex flex-col space-y-4 bg-gray-50/50 dark:bg-gray-950/40 md:overflow-y-auto shrink-0">
         <div className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 font-sans">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 font-sans truncate">
               {selectedDateLabel}
             </h3>
-            <p className="text-xs font-mono text-gray-500 dark:text-gray-400">
+            <p className="text-xs font-mono text-gray-500 dark:text-gray-400 truncate">
               {selectedDateNotes.length} {selectedDateNotes.length === 1 ? 'note' : 'notes'} linked to date
             </p>
           </div>
