@@ -3,7 +3,7 @@ import { AppConfig, NoteDetail } from '../types';
 import { slugify } from '../lib/slug';
 import { serializeNoteContent } from '../lib/frontmatter';
 import { MarkdownViewer } from './MarkdownViewer';
-import { AlertTriangle, RefreshCw, Edit3, Columns, Eye, LayoutTemplate, Sparkles, X, Check, Trash2 } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Edit3, Columns, Eye, LayoutTemplate, Sparkles, X, Check, Trash2, Globe } from 'lucide-react';
 import { NOTE_TEMPLATES, NoteTemplate } from '../lib/templates';
 
 interface NoteEditorProps {
@@ -36,6 +36,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [title, setTitle] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [content, setContent] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -49,11 +50,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       setTitle(currentNote.title || '');
       setTagsInput(currentNote.tags ? currentNote.tags.join(', ') : '');
       setContent(currentNote.content || '');
+      setIsPublic(currentNote.isPublic || false);
     } else {
       // New note default state
       setTitle('');
       setTagsInput('');
       setContent('');
+      setIsPublic(false);
     }
     setShowDeleteConfirm(false);
   }, [currentNote]);
@@ -142,7 +145,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       .map(t => t.trim())
       .filter(Boolean);
 
-    const rawMarkdown = serializeNoteContent(title, tagsArray, content);
+    const rawMarkdown = serializeNoteContent(title, tagsArray, content, isPublic);
     const isNew = !currentNote || !currentNote.sha;
 
     await onSaveNote(
@@ -286,15 +289,28 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           />
         </div>
 
-        {/* Tags Input */}
-        <div>
+        {/* Tags Input + Publish Toggle */}
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={tagsInput}
             onChange={(e) => setTagsInput(e.target.value)}
             placeholder="Tags (comma separated, e.g. work, ideas)..."
-            className="w-full px-3.5 py-2 text-xs font-sans bg-gray-50/70 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-md focus:bg-white dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+            className="flex-1 px-3.5 py-2 text-xs font-sans bg-gray-50/70 dark:bg-gray-800/80 border border-gray-300 dark:border-gray-700 rounded-md focus:bg-white dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
           />
+          <button
+            type="button"
+            onClick={() => setIsPublic(v => !v)}
+            title="Publish this note to the public digital garden"
+            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold rounded-md border transition-colors shadow-2xs ${
+              isPublic
+                ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900'
+                : 'bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">{isPublic ? 'Public' : 'Private'}</span>
+          </button>
         </div>
 
         {/* Markdown Content Area */}

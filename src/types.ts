@@ -27,6 +27,7 @@ export interface NoteDetail {
   content: string;
   updated: string;
   rawContent: string;
+  isPublic: boolean;
 }
 
 export interface CommitNode {

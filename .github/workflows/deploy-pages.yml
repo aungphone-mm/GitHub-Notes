@@ -27,6 +27,9 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
+      - run: npm run build:garden
+        env:
+          GITHUB_PAGES: "true"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

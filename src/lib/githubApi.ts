@@ -185,7 +185,8 @@ export async function readNote(config: AppConfig, path: string): Promise<NoteDet
     tags: parsed.tags,
     content: parsed.body,
     updated: parsed.updated,
-    rawContent
+    rawContent,
+    isPublic: parsed.isPublic
   };
 }
 
