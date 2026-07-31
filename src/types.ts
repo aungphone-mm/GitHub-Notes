@@ -56,3 +56,17 @@ export interface Habit {
 
 export type HabitCompletions = Record<string, string[]>; // dateStr ('YYYY-MM-DD') -> array of habit IDs completed
 
+/**
+ * Shape of the habits file committed to the repository.
+ * `updatedAt` is the ISO timestamp of the last local edit and decides
+ * which side wins when a browser and the repository disagree.
+ */
+export interface HabitData {
+  version: number;
+  habits: Habit[];
+  completions: HabitCompletions;
+  updatedAt: string;
+}
+
+export type HabitSyncState = 'offline' | 'loading' | 'saving' | 'synced' | 'error';
+

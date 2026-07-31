@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Habit, HabitCompletions, NoteHeader } from '../types';
-import { safeStore } from '../lib/storage';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { AppConfig, Habit, HabitCompletions, HabitData, HabitSyncState, NoteHeader } from '../types';
 import {
-  CheckCircle2,
-  Circle,
-  Plus,
-  Flame,
+  DEFAULT_HABITS,
+  HABIT_DATA_VERSION,
+  isLocalNewer,
+  loadLocalCompletions,
+  loadLocalHabits,
+  loadLocalMeta,
+  saveLocalCompletions,
+  saveLocalHabits,
+  saveLocalMeta
+} from '../lib/habits';
+import { GitHubApiError, habitsFilePath, readHabitData, writeHabitData } from '../lib/githubApi';
+import {
   Check,
   X,
   Copy,
-  ListTodo,
-  TrendingUp,
+  CloudOff,
+  Cloud,
+  AlertTriangle,
   FileCode,
   Github,
   RefreshCw,
@@ -18,70 +26,27 @@ import {
 } from 'lucide-react';
 
 interface HabitTrackerProps {
+  config: AppConfig;
   notes?: NoteHeader[];
   selectedPath?: string | null;
   onAppendToDailyNote?: (contentToAppend: string) => void;
   onNewNoteForDate?: (dateStr: string) => void;
+  onCommit?: (sha: string, message: string, path: string) => void;
 }
 
-const HABITS_STORAGE_KEY = 'gh_notes_habits_v2';
-const COMPLETIONS_STORAGE_KEY = 'gh_notes_habit_completions_v2';
-
-const DEFAULT_HABITS: Habit[] = [
-  {
-    id: 'h1',
-    name: '🎯 Top-1 Priority Focus Session',
-    category: 'Productivity',
-    color: 'bg-blue-500',
-    targetPerWeek: 7
-  },
-  {
-    id: 'h2',
-    name: '⚡ Morning Exercise & Hydration',
-    category: 'Health',
-    color: 'bg-amber-500',
-    targetPerWeek: 7
-  },
-  {
-    id: 'h3',
-    name: '📚 Read 15 Pages & Notes',
-    category: 'Learning',
-    color: 'bg-purple-500',
-    targetPerWeek: 7
-  },
-  {
-    id: 'h4',
-    name: '🌙 Evening Habit Journal & Review',
-    category: 'Mindfulness',
-    color: 'bg-emerald-500',
-    targetPerWeek: 7
-  }
-];
+// Delay between the last edit and the commit, so rapid checkbox
+// toggling produces one commit instead of one per click.
+const PUSH_DEBOUNCE_MS = 1500;
 
 export const HabitTracker: React.FC<HabitTrackerProps> = ({
+  config,
   onAppendToDailyNote,
-  onNewNoteForDate
+  onNewNoteForDate,
+  onCommit
 }) => {
-  // 1. Load State
-  const [habits, setHabits] = useState<Habit[]>(() => {
-    const raw = safeStore.getItem(HABITS_STORAGE_KEY);
-    if (!raw) return DEFAULT_HABITS;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return DEFAULT_HABITS;
-    }
-  });
-
-  const [completions, setCompletions] = useState<HabitCompletions>(() => {
-    const raw = safeStore.getItem(COMPLETIONS_STORAGE_KEY);
-    if (!raw) return {};
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return {};
-    }
-  });
+  // 1. Load State (local storage acts as the offline cache for the repo file)
+  const [habits, setHabits] = useState<Habit[]>(() => loadLocalHabits());
+  const [completions, setCompletions] = useState<HabitCompletions>(() => loadLocalCompletions());
 
   // Today's date string
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -95,14 +60,195 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
   const [copiedSection, setCopiedSection] = useState<'workflow' | 'planner' | null>(null);
   const [postStatusMessage, setPostStatusMessage] = useState<string | null>(null);
 
-  // Save to local storage on change
+  // ---------------------------------------------------------------------------
+  // GitHub sync
+  // ---------------------------------------------------------------------------
+  const [syncState, setSyncState] = useState<HabitSyncState>('offline');
+  const [syncMessage, setSyncMessage] = useState<string>('Habits are stored in this browser only.');
+
+  const configReady = Boolean(config.owner && config.repo && config.token);
+  const remotePath = useMemo(() => habitsFilePath(config), [config]);
+
+  // Refs let the debounced push read current values without re-arming the timer.
+  const habitsRef = useRef(habits);
+  const completionsRef = useRef(completions);
+  const remoteShaRef = useRef<string | null>(loadLocalMeta().remoteSha);
+  const localUpdatedAtRef = useRef<string>(loadLocalMeta().updatedAt);
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+  const pullInFlightRef = useRef(false);
+
   useEffect(() => {
-    safeStore.setItem(HABITS_STORAGE_KEY, JSON.stringify(habits));
+    habitsRef.current = habits;
   }, [habits]);
 
   useEffect(() => {
-    safeStore.setItem(COMPLETIONS_STORAGE_KEY, JSON.stringify(completions));
+    completionsRef.current = completions;
   }, [completions]);
+
+  useEffect(() => {
+    // Set on mount rather than only at ref creation: StrictMode's simulated
+    // remount runs the cleanup while keeping refs, which would otherwise leave
+    // this false forever and swallow every post-await state update.
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    };
+  }, []);
+
+  // Save to local storage on change
+  useEffect(() => {
+    saveLocalHabits(habits);
+  }, [habits]);
+
+  useEffect(() => {
+    saveLocalCompletions(completions);
+  }, [completions]);
+
+  const snapshot = useCallback((updatedAt: string): HabitData => ({
+    version: HABIT_DATA_VERSION,
+    habits: habitsRef.current,
+    completions: completionsRef.current,
+    updatedAt
+  }), []);
+
+  const describeError = (err: unknown): string =>
+    err instanceof GitHubApiError
+      ? err.message
+      : (err as Error)?.message || 'Unknown error while syncing habits';
+
+  const pushToGitHub = useCallback(async (data: HabitData, isRetry = false): Promise<void> => {
+    if (!configReady) {
+      setSyncState('offline');
+      setSyncMessage('Saved in this browser. Connect a repository to sync habits.');
+      return;
+    }
+
+    setSyncState('saving');
+    setSyncMessage(`Committing habits to ${remotePath}...`);
+
+    try {
+      const res = await writeHabitData(config, data, remoteShaRef.current ?? undefined);
+
+      remoteShaRef.current = res.sha;
+      localUpdatedAtRef.current = data.updatedAt;
+      saveLocalMeta({ updatedAt: data.updatedAt, remoteSha: res.sha });
+      onCommit?.(res.commitSha || res.sha, res.commitMessage, res.path);
+
+      if (!isMountedRef.current) return;
+      setSyncState('synced');
+      setSyncMessage(`Synced to ${res.path} (${(res.commitSha || res.sha).substring(0, 7)})`);
+    } catch (err) {
+      // A stale or missing SHA means the file moved underneath us: pick up the
+      // current one and write once more. Last edit wins.
+      const status = err instanceof GitHubApiError ? err.status : -1;
+      if (!isRetry && (status === 409 || status === 422 || status === 404)) {
+        try {
+          const remote = await readHabitData(config);
+          remoteShaRef.current = remote?.sha ?? null;
+          await pushToGitHub(data, true);
+          return;
+        } catch (retryErr) {
+          if (!isMountedRef.current) return;
+          setSyncState('error');
+          setSyncMessage(describeError(retryErr));
+          return;
+        }
+      }
+
+      if (!isMountedRef.current) return;
+      setSyncState('error');
+      setSyncMessage(describeError(err));
+    }
+  }, [config, configReady, onCommit, remotePath]);
+
+  const pullFromGitHub = useCallback(async (): Promise<void> => {
+    if (!configReady) {
+      setSyncState('offline');
+      setSyncMessage('Saved in this browser. Connect a repository to sync habits.');
+      return;
+    }
+
+    // Overlapping pulls would race on the SHA and can double-commit the
+    // "create the file" path (StrictMode mounts effects twice in dev).
+    if (pullInFlightRef.current) return;
+    pullInFlightRef.current = true;
+
+    setSyncState('loading');
+    setSyncMessage(`Loading habits from ${remotePath}...`);
+
+    try {
+      const remote = await readHabitData(config);
+      const local = snapshot(localUpdatedAtRef.current);
+
+      // No file yet: seed the repository from whatever this browser already has,
+      // so habits created before syncing existed are preserved rather than lost.
+      if (!remote) {
+        remoteShaRef.current = null;
+        await pushToGitHub({ ...local, updatedAt: new Date().toISOString() });
+        return;
+      }
+
+      remoteShaRef.current = remote.sha;
+
+      if (isLocalNewer(local.updatedAt, remote.data.updatedAt)) {
+        await pushToGitHub(local);
+        return;
+      }
+
+      if (!isMountedRef.current) return;
+      setHabits(remote.data.habits.length > 0 ? remote.data.habits : DEFAULT_HABITS);
+      setCompletions(remote.data.completions);
+      localUpdatedAtRef.current = remote.data.updatedAt;
+      saveLocalMeta({ updatedAt: remote.data.updatedAt, remoteSha: remote.sha });
+
+      setSyncState('synced');
+      setSyncMessage(
+        `Loaded ${remote.data.habits.length} habit(s) from ${remote.path} (${remote.sha.substring(0, 7)})`
+      );
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setSyncState('error');
+      setSyncMessage(describeError(err));
+    } finally {
+      pullInFlightRef.current = false;
+    }
+  }, [config, configReady, pushToGitHub, remotePath, snapshot]);
+
+  // Pull whenever the repository target changes (including the initial connect).
+  useEffect(() => {
+    if (!configReady) {
+      setSyncState('offline');
+      setSyncMessage('Saved in this browser. Connect a repository to sync habits.');
+      return;
+    }
+    pullFromGitHub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configReady, config.owner, config.repo, config.branch, config.notesFolder, config.token]);
+
+  /**
+   * Called after every local edit: stamps the change and schedules one commit.
+   */
+  const markLocalChange = useCallback(() => {
+    const updatedAt = new Date().toISOString();
+    localUpdatedAtRef.current = updatedAt;
+    saveLocalMeta({ updatedAt, remoteSha: remoteShaRef.current });
+
+    if (!configReady) {
+      setSyncState('offline');
+      setSyncMessage('Saved in this browser. Connect a repository to sync habits.');
+      return;
+    }
+
+    setSyncState('saving');
+    setSyncMessage('Pending commit...');
+
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      pushToGitHub(snapshot(localUpdatedAtRef.current));
+    }, PUSH_DEBOUNCE_MS);
+  }, [configReady, pushToGitHub, snapshot]);
 
   // Generate 7 days ending today for the matrix header
   const matrixDays = useMemo(() => {
@@ -148,7 +294,8 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
         [dateStr]: updated
       };
     });
-  }, []);
+    markLocalChange();
+  }, [markLocalChange]);
 
   // Calculate Streak for a habit
   const calculateStreak = useCallback((habitId: string): number => {
@@ -203,11 +350,13 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
     setHabits(prev => [...prev, newHabit]);
     setNewHabitName('');
     setIsAddModalOpen(false);
+    markLocalChange();
   };
 
   // Delete Habit
   const handleDeleteHabit = (id: string) => {
     setHabits(prev => prev.filter(h => h.id !== id));
+    markLocalChange();
   };
 
   // Post Issue Planner handler
@@ -263,6 +412,47 @@ labels: ["daily-planner", "habit-tracker"]
 ## 📊 Habit Tracker
 ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
 `;
+
+  // Sync status pill presentation
+  const syncPill = useMemo(() => {
+    switch (syncState) {
+      case 'loading':
+        return {
+          label: 'Loading...',
+          icon: <RefreshCw className="w-3.5 h-3.5 animate-spin" />,
+          className:
+            'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+        };
+      case 'saving':
+        return {
+          label: 'Syncing...',
+          icon: <RefreshCw className="w-3.5 h-3.5 animate-spin" />,
+          className:
+            'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+        };
+      case 'synced':
+        return {
+          label: 'Synced',
+          icon: <Cloud className="w-3.5 h-3.5" />,
+          className:
+            'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+        };
+      case 'error':
+        return {
+          label: 'Sync failed',
+          icon: <AlertTriangle className="w-3.5 h-3.5" />,
+          className:
+            'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+        };
+      default:
+        return {
+          label: 'Local only',
+          icon: <CloudOff className="w-3.5 h-3.5" />,
+          className:
+            'bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-300 border-gray-300 dark:border-gray-700'
+        };
+    }
+  }, [syncState]);
 
   const copyToClipboard = (text: string, section: 'workflow' | 'planner') => {
     navigator.clipboard.writeText(text);
@@ -346,6 +536,17 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => pullFromGitHub()}
+              disabled={!configReady || syncState === 'loading' || syncState === 'saving'}
+              title={syncMessage}
+              className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 shadow-2xs disabled:opacity-70 ${syncPill.className}`}
+            >
+              {syncPill.icon}
+              <span>{syncPill.label}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsAddModalOpen(true)}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-2xs"
             >
@@ -360,6 +561,17 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
               {postStatusMessage || 'Post Issue Planner'}
             </button>
           </div>
+        </div>
+
+        {/* Sync detail line */}
+        <div
+          className={`text-[11px] font-mono px-3 py-2 rounded-lg border ${
+            syncState === 'error'
+              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900'
+              : 'bg-slate-50 dark:bg-gray-800/50 text-slate-500 dark:text-gray-400 border-gray-200 dark:border-gray-800'
+          }`}
+        >
+          {syncMessage}
         </div>
 
         {/* Habit Cards List */}
