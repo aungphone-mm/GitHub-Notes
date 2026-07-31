@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // GitHub Pages serves this project from /<repo>/, not the domain root.
+    base: process.env.GITHUB_PAGES ? '/GitHub-Notes1/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
