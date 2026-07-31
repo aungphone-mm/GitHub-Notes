@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_HABITS,
   HABIT_DATA_VERSION,
+  formatDateKey,
   isLocalNewer,
   loadLocalCompletions,
   loadLocalHabits,
@@ -46,8 +47,6 @@ interface HabitTrackerProps {
   config: AppConfig;
   notes?: NoteHeader[];
   selectedPath?: string | null;
-  onAppendToDailyNote?: (contentToAppend: string) => void;
-  onNewNoteForDate?: (dateStr: string) => void;
   onCommit?: (sha: string, message: string, path: string) => void;
 }
 
@@ -57,16 +56,14 @@ const PUSH_DEBOUNCE_MS = 1500;
 
 export const HabitTracker: React.FC<HabitTrackerProps> = ({
   config,
-  onAppendToDailyNote,
-  onNewNoteForDate,
   onCommit
 }) => {
   // 1. Load State (local storage acts as the offline cache for the repo file)
   const [habits, setHabits] = useState<Habit[]>(() => loadLocalHabits());
   const [completions, setCompletions] = useState<HabitCompletions>(() => loadLocalCompletions());
 
-  // Today's date string
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // Today's date string, in the viewer's timezone (see formatDateKey).
+  const todayStr = useMemo(() => formatDateKey(new Date()), []);
 
   // New Habit Modal / Form
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -75,7 +72,6 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
   // Bot workflow modal toggle
   const [showWorkflowConfig, setShowWorkflowConfig] = useState(false);
   const [copiedSection, setCopiedSection] = useState<'workflow' | 'planner' | null>(null);
-  const [postStatusMessage, setPostStatusMessage] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // GitHub sync
@@ -319,7 +315,7 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatDateKey(d);
       const month = d.getMonth() + 1;
       const dayNum = d.getDate();
 
@@ -365,7 +361,7 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
     for (let i = 0; i < 365; i++) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
-      const dStr = d.toISOString().split('T')[0];
+      const dStr = formatDateKey(d);
 
       const completed = (completions[dStr] || []).includes(habitId);
       if (completed) {
@@ -416,24 +412,6 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
   const handleDeleteHabit = (id: string) => {
     setHabits(prev => prev.filter(h => h.id !== id));
     markLocalChange();
-  };
-
-  // Post Issue Planner handler
-  const handlePostIssuePlanner = () => {
-    const todayList = completions[todayStr] || [];
-    const markdownChecklist = habits
-      .map(h => `- [${todayList.includes(h.id) ? 'x' : ' '}] ${h.name}`)
-      .join('\n');
-
-    const habitBlock = `\n\n### 🎯 Daily Habits & Planner (${todayStr})\n${markdownChecklist}\n`;
-
-    if (onAppendToDailyNote) {
-      onAppendToDailyNote(habitBlock);
-      setPostStatusMessage('Planner Posted to Daily Note!');
-      setTimeout(() => setPostStatusMessage(null), 3000);
-    } else if (onNewNoteForDate) {
-      onNewNoteForDate(todayStr);
-    }
   };
 
   // Code snippets for the GitHub Action planner.
@@ -598,7 +576,7 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-slate-900 dark:text-gray-100 flex items-center gap-1.5 font-sans">
               <span className="text-emerald-600 dark:text-emerald-400">✅</span>
-              <span>Today's Habit Checklist & Daily Planner</span>
+              <span>Today's Habit Checklist</span>
             </h2>
             <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-2 py-0.5 rounded tracking-wide uppercase">
               TODAY
@@ -623,14 +601,6 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-gray-800 text-slate-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-2xs"
             >
               + Custom Habit
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePostIssuePlanner}
-              className="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-2xs"
-            >
-              {postStatusMessage || 'Post Issue Planner'}
             </button>
           </div>
         </div>

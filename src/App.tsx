@@ -463,7 +463,7 @@ export default function App() {
           {activeView === 'editor' ? (
             selectedPath ? `Editing: ${selectedPath}` : 'Drafting / Reading Note'
           ) : activeView === 'calendar' ? (
-            'Monthly Calendar & Day Logs'
+            'Monthly Calendar, Day Logs & Habit History'
           ) : (
             'Habit Routines & GitHub Actions Planner'
           )}
@@ -545,8 +545,6 @@ export default function App() {
               config={config}
               notes={notesWithFavorites}
               selectedPath={selectedPath}
-              onAppendToDailyNote={handleAppendDaily}
-              onNewNoteForDate={handleNewNoteForDate}
               onCommit={(sha, message, path) => addSessionCommit(sha, message, path, 'update')}
             />
           </div>
