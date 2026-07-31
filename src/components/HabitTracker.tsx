@@ -441,9 +441,7 @@ export const HabitTracker: React.FC<HabitTrackerProps> = ({
   const yamlWorkflowCode = `name: daily-planner
 
 on:
-  # 23:30 UTC == 06:00 the next day in Yangon (UTC+6:30)
-  schedule:
-    - cron: '30 23 * * *'
+  # Manual only: run from the Actions tab when a planner issue is wanted.
   workflow_dispatch:
 
 jobs:
@@ -1037,10 +1035,10 @@ ${habits.map(h => `- [ ] ${h.name}`).join('\n')}
                 <span>Daily Planner Issue Automation</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-gray-400">
-                A GitHub Action opens a planner issue every morning from{' '}
-                <span className="font-mono">.github/PLANNER.md</span>. Its task list becomes the
-                Tasks column below, labels act as tags, and comments are journal logs. Tick items on
-                GitHub, then re-fetch here.
+                Run the <span className="font-mono">daily-planner</span> action from the Actions tab
+                to open a planner issue from <span className="font-mono">.github/PLANNER.md</span>.
+                Its task list becomes the Tasks column below, labels act as tags, and comments are
+                journal logs. Tick items on GitHub, then re-fetch here.
               </p>
             </div>
 
