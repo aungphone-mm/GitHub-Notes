@@ -21,6 +21,39 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const EPOCH_ISO = new Date(0).toISOString();
 
+/**
+ * The YYYY-MM-DD key a date is filed under, in the viewer's own timezone.
+ *
+ * Deliberately local rather than `toISOString().slice(0, 10)`: a habit is about
+ * the user's day, and east-of-UTC users would otherwise file anything ticked
+ * before their morning UTC rollover under the previous day. Both the tracker
+ * and the calendar must call this, or a completion is written under one key and
+ * looked up under another.
+ */
+export function formatDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Habit ids completed on a given date, filtered to habits that still exist.
+ * Deleting a habit leaves its id behind in history; counting those would show
+ * completions above the number of tracked habits.
+ */
+export function completedOn(
+  completions: HabitCompletions,
+  dateStr: string,
+  habits: Habit[]
+): string[] {
+  const done = completions[dateStr];
+  if (!done || done.length === 0) return [];
+
+  const known = new Set(habits.map(h => h.id));
+  return done.filter(id => known.has(id));
+}
+
 export const DEFAULT_HABITS: Habit[] = [
   {
     id: 'h1',
