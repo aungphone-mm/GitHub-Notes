@@ -1,4 +1,4 @@
-import { AppConfig, NoteHeader, NoteDetail, HabitData } from '../types';
+import { AppConfig, NoteHeader, NoteDetail, HabitData, IssueRow } from '../types';
 import { b64encode, b64decode } from './encoding';
 import { parseNoteContent } from './frontmatter';
 import { normalizeHabitData } from './habits';
@@ -425,6 +425,79 @@ export async function writeHabitData(
     commitMessage,
     path
   };
+}
+
+/**
+ * Count "- [ ]" / "- [x]" task list items in an issue body.
+ * Mirrors how GitHub itself renders task list progress.
+ */
+export function parseChecklistProgress(body: string | null | undefined): {
+  done: number;
+  total: number;
+} {
+  if (!body) return { done: 0, total: 0 };
+
+  let done = 0;
+  let total = 0;
+
+  for (const line of body.split('\n')) {
+    const match = /^\s*[-*]\s+\[([ xX])\]\s+/.exec(line);
+    if (!match) continue;
+    total++;
+    if (match[1] !== ' ') done++;
+  }
+
+  return { done, total };
+}
+
+/**
+ * List repository issues for the planner table.
+ * Pull requests are filtered out: /issues returns them too, and they are not planner rows.
+ */
+export async function listIssues(
+  config: AppConfig,
+  options: { labels?: string; state?: 'open' | 'closed' | 'all'; perPage?: number } = {}
+): Promise<IssueRow[]> {
+  const { labels = '', state = 'open', perPage = 30 } = options;
+
+  const params = new URLSearchParams({
+    state,
+    sort: 'updated',
+    direction: 'desc',
+    per_page: String(perPage)
+  });
+
+  const trimmedLabels = labels.trim();
+  if (trimmedLabels) {
+    params.set('labels', trimmedLabels);
+  }
+
+  const endpoint = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/issues?${params.toString()}`;
+  const data = await ghFetch(config, endpoint);
+
+  if (!Array.isArray(data)) return [];
+
+  return data
+    .filter((item: any) => item && !item.pull_request)
+    .map((item: any): IssueRow => {
+      const progress = parseChecklistProgress(item.body);
+
+      return {
+        number: item.number,
+        title: item.title || '(untitled)',
+        state: item.state === 'closed' ? 'closed' : 'open',
+        htmlUrl: item.html_url,
+        labels: Array.isArray(item.labels)
+          ? item.labels
+              .filter((l: any) => l && typeof l.name === 'string')
+              .map((l: any) => ({ name: l.name, color: typeof l.color === 'string' ? l.color : '888888' }))
+          : [],
+        comments: typeof item.comments === 'number' ? item.comments : 0,
+        updatedAt: item.updated_at || '',
+        checklistDone: progress.done,
+        checklistTotal: progress.total
+      };
+    });
 }
 
 /**
