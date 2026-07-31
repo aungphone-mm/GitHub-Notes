@@ -5,9 +5,15 @@ export interface ParsedFrontmatter {
   tags: string[];
   updated: string;
   body: string;
+  isPublic: boolean;
 }
 
-export function serializeNoteContent(title: string, tags: string[], body: string): string {
+export function serializeNoteContent(
+  title: string,
+  tags: string[],
+  body: string,
+  isPublic: boolean = false
+): string {
   const isoUpdated = new Date().toISOString();
   const jsonTitle = JSON.stringify(title || 'Untitled');
   const formattedTags = tags.map(t => t.trim()).filter(Boolean);
@@ -18,6 +24,7 @@ export function serializeNoteContent(title: string, tags: string[], body: string
     `title: ${jsonTitle}`,
     `tags: ${jsonTags}`,
     `updated: "${isoUpdated}"`,
+    `public: ${isPublic ? 'true' : 'false'}`,
     '---',
     '',
     body.trimStart()
@@ -37,7 +44,8 @@ export function parseNoteContent(rawContent: string, path: string): ParsedFrontm
       title: titleFromPath(path),
       tags: [],
       updated: '',
-      body: rawContent
+      body: rawContent,
+      isPublic: false
     };
   }
 
@@ -45,6 +53,7 @@ export function parseNoteContent(rawContent: string, path: string): ParsedFrontm
   let title = titleFromPath(path);
   let tags: string[] = [];
   let updated = '';
+  let isPublic = false;
 
   const lines = yamlBlock.split('\n');
   for (const line of lines) {
@@ -73,6 +82,8 @@ export function parseNoteContent(rawContent: string, path: string): ParsedFrontm
       }
     } else if (key === 'updated') {
       updated = value.replace(/^["']|["']$/g, '');
+    } else if (key === 'public') {
+      isPublic = value.trim().toLowerCase() === 'true';
     }
   }
 
@@ -80,6 +91,7 @@ export function parseNoteContent(rawContent: string, path: string): ParsedFrontm
     title: title || titleFromPath(path),
     tags,
     updated,
-    body: body.trim()
+    body: body.trim(),
+    isPublic
   };
 }
