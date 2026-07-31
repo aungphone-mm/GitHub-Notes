@@ -542,10 +542,12 @@ export default function App() {
         {activeView === 'habits' || mobileTab === 'habits' ? (
           <div className="w-full h-full flex-1">
             <HabitTracker
+              config={config}
               notes={notesWithFavorites}
               selectedPath={selectedPath}
               onAppendToDailyNote={handleAppendDaily}
               onNewNoteForDate={handleNewNoteForDate}
+              onCommit={(sha, message, path) => addSessionCommit(sha, message, path, 'update')}
             />
           </div>
         ) : activeView === 'calendar' || mobileTab === 'calendar' ? (

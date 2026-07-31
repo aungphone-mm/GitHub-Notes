@@ -1,6 +1,7 @@
-import { AppConfig, NoteHeader, NoteDetail } from '../types';
+import { AppConfig, NoteHeader, NoteDetail, HabitData } from '../types';
 import { b64encode, b64decode } from './encoding';
 import { parseNoteContent } from './frontmatter';
+import { normalizeHabitData } from './habits';
 
 export function encodePathSegments(path: string): string {
   return path
@@ -339,6 +340,90 @@ export async function deleteNote(
   return {
     commitSha: res.commit?.sha,
     commitMessage
+  };
+}
+
+/**
+ * Repository path of the habits file, e.g. "notes/habits.json".
+ */
+export function habitsFilePath(config: AppConfig): string {
+  const folderPrefix = (config.notesFolder || 'notes').trim().replace(/^\/+|\/+$/g, '');
+  return folderPrefix ? `${folderPrefix}/habits.json` : 'habits.json';
+}
+
+/**
+ * Read habits + completions from the repository.
+ * Returns null when the file does not exist yet (first sync from this repo).
+ */
+export async function readHabitData(
+  config: AppConfig
+): Promise<{ data: HabitData; sha: string; path: string } | null> {
+  const path = habitsFilePath(config);
+  const encodedPath = encodePathSegments(path);
+  const branch = encodeURIComponent(config.branch || 'main');
+  const endpoint = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/contents/${encodedPath}?ref=${branch}`;
+
+  const file = await ghFetch(config, endpoint, {}, true);
+  if (!file) return null;
+
+  // Files over 1MB come back with an empty body and encoding "none".
+  if (!file.content || file.encoding !== 'base64') {
+    throw new GitHubApiError(
+      500,
+      `Habits file ${path} could not be read inline (encoding: ${file.encoding || 'unknown'}).`
+    );
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(b64decode(file.content));
+  } catch {
+    throw new GitHubApiError(
+      500,
+      `Habits file ${path} is not valid JSON. Fix or delete it on GitHub to resume syncing.`
+    );
+  }
+
+  return { data: normalizeHabitData(parsed), sha: file.sha, path };
+}
+
+/**
+ * Commit habits + completions to the repository.
+ * Pass the last known SHA so GitHub rejects a write over someone else's newer version.
+ */
+export async function writeHabitData(
+  config: AppConfig,
+  data: HabitData,
+  existingSha?: string
+): Promise<{ sha: string; commitSha?: string; commitMessage: string; path: string }> {
+  const path = habitsFilePath(config);
+  const encodedPath = encodePathSegments(path);
+  const endpoint = `/repos/${encodeURIComponent(config.owner)}/${encodeURIComponent(config.repo)}/contents/${encodedPath}`;
+
+  const commitMessage = `habits: sync ${data.habits.length} habit(s)`;
+  const serialized = `${JSON.stringify(data, null, 2)}\n`;
+
+  const body: any = {
+    message: commitMessage,
+    content: b64encode(serialized),
+    branch: config.branch || 'main'
+  };
+
+  if (existingSha) {
+    body.sha = existingSha;
+  }
+
+  const res = await ghFetch(config, endpoint, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  return {
+    sha: res.content.sha,
+    commitSha: res.commit?.sha,
+    commitMessage,
+    path
   };
 }
 
