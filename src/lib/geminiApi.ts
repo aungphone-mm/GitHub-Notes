@@ -20,6 +20,35 @@ function getClient(apiKey: string): GoogleGenAI {
 const MODEL = 'gemini-3.6-flash';
 
 /**
+ * Parses Gemini API errors to provide user-friendly messages.
+ */
+function handleApiError(err: any): never {
+  const msg = typeof err === 'string' ? err : (err?.message || String(err));
+  
+  if (msg.includes('User location is not supported') || msg.includes('FAILED_PRECONDITION')) {
+    throw new Error('Gemini AI is not supported in your current region. Please use a VPN.');
+  }
+
+  // Try to parse raw JSON error strings from the SDK
+  try {
+    const match = msg.match(/({.*})/);
+    if (match) {
+      const parsed = JSON.parse(match[1]);
+      if (parsed.error?.message) {
+        if (parsed.error.message.includes('User location is not supported')) {
+          throw new Error('Gemini AI is not supported in your current region. Please use a VPN.');
+        }
+        throw new Error(parsed.error.message);
+      }
+    }
+  } catch (e) {
+    // Ignore JSON parse errors
+  }
+
+  throw new Error(msg || 'AI Request Failed.');
+}
+
+/**
  * Suggest up to 5 relevant tags for a note based on its title and body.
  * Returns an array of lowercase tag strings.
  */
@@ -40,10 +69,15 @@ ${body.slice(0, 2000)}
 
 Return ONLY a JSON array of strings, e.g. ["productivity","react","ideas"]. No explanation.`;
 
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt
+    });
+  } catch (err) {
+    handleApiError(err);
+  }
 
   const text = response.text?.trim() ?? '';
   // Strip any markdown code fences the model may add
@@ -86,10 +120,15 @@ ${body.slice(0, 2000)}
 
 Return ONLY the title text on a single line.`;
 
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt
+    });
+  } catch (err) {
+    handleApiError(err);
+  }
 
   return (response.text?.trim() ?? '')
     .replace(/^["']|["']$/g, '')
@@ -117,10 +156,15 @@ ${body.slice(0, 3000)}
 
 Return ONLY the bullet list, nothing else.`;
 
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: MODEL,
+      contents: prompt
+    });
+  } catch (err) {
+    handleApiError(err);
+  }
 
   return response.text?.trim() ?? '';
 }
