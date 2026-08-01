@@ -225,18 +225,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <span>Templates</span>
             </button>
 
-            {/* Delete / Discard Header Button */}
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-red-50 dark:bg-red-950/80 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/80 hover:bg-red-100 dark:hover:bg-red-900 transition-colors shadow-2xs"
-              title={currentNote?.path ? "Delete note from repository" : "Discard current draft"}
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" />
-              <span className="hidden sm:inline">{currentNote?.path ? "Delete" : "Discard"}</span>
-            </button>
-
             <div className="flex items-center bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400">
               <button
                 type="button"
