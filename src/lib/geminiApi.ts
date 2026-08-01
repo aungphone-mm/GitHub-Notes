@@ -17,7 +17,7 @@ function getClient(apiKey: string): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-3.6-flash';
 
 /**
  * Parses Gemini API errors to provide user-friendly messages.
