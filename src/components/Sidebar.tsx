@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { AppConfig } from '../types';
 import {
   Github, Sun, Moon, Settings, ChevronDown, ChevronUp, CheckCircle2,
-  AlertTriangle, X, Sparkles, FileText, Calendar, TrendingUp, PanelLeftClose, PanelLeftOpen
+  AlertTriangle, X, Sparkles, FileText, Calendar, TrendingUp,
+  PanelLeftClose, PanelLeftOpen, Menu
 } from 'lucide-react';
 
 const PAT_WARNING_KEY = 'gh_notes_pat_warning_dismissed';
+
+type ViewKey = 'editor' | 'calendar' | 'habits';
 
 interface SettingsFormProps {
   config: AppConfig;
@@ -181,6 +184,151 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
   );
 };
 
+interface RepoPillProps {
+  config: AppConfig;
+  compact?: boolean;
+}
+
+const RepoPill: React.FC<RepoPillProps> = ({ config, compact }) => (
+  <div className={`flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-700 dark:text-gray-300 w-fit max-w-full ${compact ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1'}`}>
+    <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+    <span className={`font-semibold text-gray-900 dark:text-gray-100 truncate ${compact ? 'max-w-[8rem]' : ''}`}>
+      {config.owner}/{config.repo}
+    </span>
+    {!compact && <span className="text-gray-400 shrink-0">({config.branch || 'main'})</span>}
+  </div>
+);
+
+interface SidebarBodyProps {
+  config: AppConfig;
+  onUpdateConfig: (newConfig: AppConfig) => void;
+  onForgetToken: () => void;
+  onConnect: () => void;
+  isLoading: boolean;
+  activeView: ViewKey;
+  onChangeView: (view: ViewKey) => void;
+  contextLabel: string;
+  isCollapsed: boolean;
+  onNavigate?: () => void;
+}
+
+const navItems: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
+  { key: 'editor', label: 'Notes Workspace', icon: <FileText className="w-4 h-4" /> },
+  { key: 'calendar', label: 'Calendar View', icon: <Calendar className="w-4 h-4" /> },
+  { key: 'habits', label: 'Habit Tracker', icon: <TrendingUp className="w-4 h-4 text-emerald-500" /> }
+];
+
+const SidebarBody: React.FC<SidebarBodyProps> = ({
+  config, onUpdateConfig, onForgetToken, onConnect, isLoading,
+  activeView, onChangeView, contextLabel, isCollapsed, onNavigate
+}) => {
+  const isConfigComplete = Boolean(config.owner && config.repo && config.token);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(!isConfigComplete);
+
+  return (
+    <>
+      <nav className="space-y-1">
+        {navItems.map(item => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => {
+              onChangeView(item.key);
+              onNavigate?.();
+            }}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold rounded-md transition-colors ${
+              isCollapsed ? 'justify-center' : ''
+            } ${
+              activeView === item.key
+                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+            title={item.label}
+          >
+            {item.icon}
+            {!isCollapsed && <span>{item.label}</span>}
+          </button>
+        ))}
+      </nav>
+
+      {!isCollapsed && (
+        <div className="text-[11px] font-mono text-gray-400 dark:text-gray-500 px-2.5 select-none">
+          {contextLabel}
+        </div>
+      )}
+
+      <div className="border-t border-gray-100 dark:border-gray-800 pt-3">
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(prev => !prev)}
+          className={`w-full px-2.5 py-2 rounded-md text-xs font-medium transition-colors flex items-center gap-2 border ${
+            isCollapsed ? 'justify-center' : ''
+          } ${
+            isSettingsOpen
+              ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+              : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+          title="Configure repository credentials"
+        >
+          <Settings className="w-3.5 h-3.5 shrink-0" />
+          {!isCollapsed && (
+            <>
+              <span className="flex-1 text-left">Settings</span>
+              {isSettingsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </>
+          )}
+        </button>
+
+        {!isCollapsed && isSettingsOpen && (
+          <div className="mt-2.5">
+            <SettingsForm
+              config={config}
+              onUpdateConfig={onUpdateConfig}
+              onForgetToken={onForgetToken}
+              onConnect={onConnect}
+              onConnected={() => {
+                setIsSettingsOpen(false);
+                onNavigate?.();
+              }}
+              isLoading={isLoading}
+              isConfigComplete={isConfigComplete}
+            />
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+interface SidebarFooterProps {
+  isCollapsed: boolean;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+}
+
+const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed, theme, onToggleTheme }) => (
+  <div className={`border-t border-gray-100 dark:border-gray-800 px-2 py-2.5 flex items-center gap-2 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+    {!isCollapsed && (
+      <div className="text-[10px] font-mono text-gray-400 dark:text-gray-500 select-none truncate">
+        Ctrl+S: Save | Ctrl+Enter: New
+      </div>
+    )}
+    <button
+      type="button"
+      onClick={onToggleTheme}
+      className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors shrink-0"
+      title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+      aria-label="Toggle theme"
+    >
+      {theme === 'light' ? (
+        <Moon className="w-4 h-4 text-gray-700" />
+      ) : (
+        <Sun className="w-4 h-4 text-amber-400" />
+      )}
+    </button>
+  </div>
+);
+
 interface SidebarProps {
   config: AppConfig;
   onUpdateConfig: (newConfig: AppConfig) => void;
@@ -189,8 +337,8 @@ interface SidebarProps {
   isLoading: boolean;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
-  activeView: 'editor' | 'calendar' | 'habits';
-  onChangeView: (view: 'editor' | 'calendar' | 'habits') => void;
+  activeView: ViewKey;
+  onChangeView: (view: ViewKey) => void;
   contextLabel: string;
 }
 
@@ -207,79 +355,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
   contextLabel
 }) => {
   const isConfigComplete = Boolean(config.owner && config.repo && config.token);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(!isConfigComplete);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const navItems: { key: 'editor' | 'calendar' | 'habits'; label: string; icon: React.ReactNode }[] = [
-    { key: 'editor', label: 'Notes Workspace', icon: <FileText className="w-4 h-4" /> },
-    { key: 'calendar', label: 'Calendar View', icon: <Calendar className="w-4 h-4" /> },
-    { key: 'habits', label: 'Habit Tracker', icon: <TrendingUp className="w-4 h-4 text-emerald-500" /> }
-  ];
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   return (
     <>
-      {/* Mobile Top Bar (compact, replaces old header on small screens) */}
+      {/* Mobile Top Bar */}
       <div className="md:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 py-2 flex items-center justify-between gap-2 shrink-0 z-20 transition-colors">
         <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => setIsDrawerOpen(true)}
+            className="p-1.5 -ml-1 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
+            title="Open menu"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <Github className="w-5 h-5 text-gray-900 dark:text-gray-100 shrink-0" />
           <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight font-sans truncate">
             GitHub Notes
           </h1>
           {isConfigComplete && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[10px] font-mono text-gray-700 dark:text-gray-300 shrink-0">
-              <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-              <span className="font-semibold text-gray-900 dark:text-gray-100 truncate max-w-[8rem]">
-                {config.owner}/{config.repo}
-              </span>
+            <div className="shrink-0">
+              <RepoPill config={config} compact />
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(prev => !prev)}
-            className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1 border ${
-              isMobileMenuOpen
-                ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-            title="Settings"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            {isMobileMenuOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors"
-            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? (
-              <Moon className="w-4 h-4 text-gray-700" />
-            ) : (
-              <Sun className="w-4 h-4 text-amber-400" />
-            )}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors shrink-0"
+          title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? (
+            <Moon className="w-4 h-4 text-gray-700" />
+          ) : (
+            <Sun className="w-4 h-4 text-amber-400" />
+          )}
+        </button>
       </div>
 
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-3 py-3 shrink-0 z-20">
-          <SettingsForm
-            config={config}
-            onUpdateConfig={onUpdateConfig}
-            onForgetToken={onForgetToken}
-            onConnect={onConnect}
-            onConnected={() => setIsMobileMenuOpen(false)}
-            isLoading={isLoading}
-            isConfigComplete={isConfigComplete}
-          />
+      {/* Mobile Slide-in Drawer */}
+      <div className={`md:hidden fixed inset-0 z-50 ${isDrawerOpen ? '' : 'pointer-events-none'}`} aria-hidden={!isDrawerOpen}>
+        <div
+          className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ${isDrawerOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setIsDrawerOpen(false)}
+        />
+        <div
+          className={`absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-gray-900 shadow-xl flex flex-col transition-transform duration-200 ease-out ${
+            isDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+            <Github className="w-5 h-5 text-gray-900 dark:text-gray-100 shrink-0" />
+            <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight font-sans truncate">
+              GitHub Notes
+            </h1>
+            <button
+              type="button"
+              onClick={() => setIsDrawerOpen(false)}
+              className="ml-auto p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
+              title="Close menu"
+              aria-label="Close menu"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {isConfigComplete && (
+            <div className="px-3 pt-2.5">
+              <RepoPill config={config} />
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
+            <SidebarBody
+              config={config}
+              onUpdateConfig={onUpdateConfig}
+              onForgetToken={onForgetToken}
+              onConnect={onConnect}
+              isLoading={isLoading}
+              activeView={activeView}
+              onChangeView={onChangeView}
+              contextLabel={contextLabel}
+              isCollapsed={false}
+              onNavigate={() => setIsDrawerOpen(false)}
+            />
+          </div>
+
+          <SidebarFooter isCollapsed={false} theme={theme} onToggleTheme={onToggleTheme} />
         </div>
-      )}
+      </div>
 
       {/* Desktop Sidebar */}
       <aside
@@ -287,7 +456,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isCollapsed ? 'md:w-16' : 'md:w-72'
         }`}
       >
-        {/* Brand */}
         <div className={`flex items-center gap-2 px-3 py-3 border-b border-gray-100 dark:border-gray-800 ${isCollapsed ? 'justify-center' : ''}`}>
           <Github className="w-5 h-5 text-gray-900 dark:text-gray-100 shrink-0" />
           {!isCollapsed && (
@@ -307,105 +475,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {!isCollapsed && isConfigComplete && (
           <div className="px-3 pt-2.5">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs font-mono text-gray-700 dark:text-gray-300 w-fit max-w-full">
-              <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-              <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                {config.owner}/{config.repo}
-              </span>
-              <span className="text-gray-400 shrink-0">({config.branch || 'main'})</span>
-            </div>
+            <RepoPill config={config} />
           </div>
         )}
 
-        {/* Scrollable content: nav + settings */}
         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
-          {/* View Switcher Nav */}
-          <nav className="space-y-1">
-            {navItems.map(item => (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => onChangeView(item.key)}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold rounded-md transition-colors ${
-                  isCollapsed ? 'justify-center' : ''
-                } ${
-                  activeView === item.key
-                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-                title={item.label}
-              >
-                {item.icon}
-                {!isCollapsed && <span>{item.label}</span>}
-              </button>
-            ))}
-          </nav>
-
-          {!isCollapsed && (
-            <div className="text-[11px] font-mono text-gray-400 dark:text-gray-500 px-2.5 select-none">
-              {contextLabel}
-            </div>
-          )}
-
-          <div className="border-t border-gray-100 dark:border-gray-800 pt-3">
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(prev => !prev)}
-              className={`w-full px-2.5 py-2 rounded-md text-xs font-medium transition-colors flex items-center gap-2 border ${
-                isCollapsed ? 'justify-center' : ''
-              } ${
-                isSettingsOpen
-                  ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-              title="Configure repository credentials"
-            >
-              <Settings className="w-3.5 h-3.5 shrink-0" />
-              {!isCollapsed && (
-                <>
-                  <span className="flex-1 text-left">Settings</span>
-                  {isSettingsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </>
-              )}
-            </button>
-
-            {!isCollapsed && isSettingsOpen && (
-              <div className="mt-2.5">
-                <SettingsForm
-                  config={config}
-                  onUpdateConfig={onUpdateConfig}
-                  onForgetToken={onForgetToken}
-                  onConnect={onConnect}
-                  onConnected={() => setIsSettingsOpen(false)}
-                  isLoading={isLoading}
-                  isConfigComplete={isConfigComplete}
-                />
-              </div>
-            )}
-          </div>
+          <SidebarBody
+            config={config}
+            onUpdateConfig={onUpdateConfig}
+            onForgetToken={onForgetToken}
+            onConnect={onConnect}
+            isLoading={isLoading}
+            activeView={activeView}
+            onChangeView={onChangeView}
+            contextLabel={contextLabel}
+            isCollapsed={isCollapsed}
+          />
         </div>
 
-        {/* Footer: shortcuts + theme */}
-        <div className={`border-t border-gray-100 dark:border-gray-800 px-2 py-2.5 flex items-center gap-2 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-          {!isCollapsed && (
-            <div className="text-[10px] font-mono text-gray-400 dark:text-gray-500 select-none truncate">
-              Ctrl+S: Save | Ctrl+Enter: New
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition-colors shrink-0"
-            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? (
-              <Moon className="w-4 h-4 text-gray-700" />
-            ) : (
-              <Sun className="w-4 h-4 text-amber-400" />
-            )}
-          </button>
-        </div>
+        <SidebarFooter isCollapsed={isCollapsed} theme={theme} onToggleTheme={onToggleTheme} />
       </aside>
     </>
   );
