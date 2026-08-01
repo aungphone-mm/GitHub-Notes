@@ -1,0 +1,9 @@
+name = "gemini-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[vars]
+# Origins allowed to call this proxy. Add your local dev origin while testing.
+# GEMINI_API_KEY and PROXY_KEY are secrets — set them with `wrangler secret put`,
+# never here (this file is committed).
+ALLOWED_ORIGINS = "https://aungphone-mm.github.io,http://localhost:3000"

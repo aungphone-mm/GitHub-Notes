@@ -4,8 +4,16 @@ export interface AppConfig {
   branch: string;
   notesFolder: string;
   token: string;
-  /** Optional Gemini API key for AI features. Falls back to GEMINI_API_KEY env var. */
+  /** Optional Gemini API key for direct calls. Ignored when aiProxyUrl is set. */
   geminiKey?: string;
+  /**
+   * Base URL of the Gemini proxy worker (see `worker/`). Set this where Gemini
+   * is geo-blocked — requests route through the worker instead of the browser
+   * calling Google directly, and the API key stays server-side.
+   */
+  aiProxyUrl?: string;
+  /** Shared secret the proxy worker requires (its PROXY_KEY). */
+  aiProxyKey?: string;
 }
 
 export interface NoteHeader {
