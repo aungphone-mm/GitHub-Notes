@@ -28,7 +28,6 @@ interface NoteListProps {
   onNewNote: () => void;
   onRefresh?: () => void;
   isLoading: boolean;
-  notesFolder?: string;
   onToggleFavorite?: (path: string) => void;
   onDeleteNote?: (path: string, sha?: string) => void;
   config?: AppConfig;
@@ -372,6 +371,14 @@ export const NoteList: React.FC<NoteListProps> = ({
               </div>
             ) : null}
           </div>
+
+          {/* Hint: type at least 3 chars to trigger GitHub search */}
+          {searchTerm.trim().length > 0 && searchTerm.trim().length < 3 && useGithubSearch && isConfigValid && (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-mono flex items-center gap-1 px-0.5">
+              <AlertCircle className="w-3 h-3 shrink-0" />
+              Type at least 3 characters to search GitHub
+            </p>
+          )}
         </div>
 
         {/* Tag Cloud Visualization Section */}

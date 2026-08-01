@@ -28,8 +28,9 @@ export interface NoteDetail {
   tags: string[];
   content: string;
   updated: string;
-  rawContent: string;
-  isPublic: boolean;
+  /** Raw file content including frontmatter. Optional — absent for unsaved/new notes. */
+  rawContent?: string;
+  isPublic?: boolean;
 }
 
 export interface CommitNode {

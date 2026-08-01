@@ -500,7 +500,6 @@ export default function App() {
                 setActiveView('editor');
                 setMobileTab('editor');
               }}
-              notesFolder={config.notesFolder || 'notes'}
               onToggleFavorite={handleToggleFavorite}
             />
           </div>
@@ -521,7 +520,6 @@ export default function App() {
                 }}
                 onRefresh={handleLoadNotes}
                 isLoading={isLoading}
-                notesFolder={config.notesFolder || 'notes'}
                 onToggleFavorite={handleToggleFavorite}
                 onDeleteNote={handleDeleteNote}
                 config={config}
