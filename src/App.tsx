@@ -9,7 +9,6 @@ import { NoteEditor } from './components/NoteEditor';
 import { CalendarView } from './components/CalendarView';
 import { HabitTracker } from './components/HabitTracker';
 import { CommitFooter } from './components/CommitFooter';
-import { FileText, Edit3, Calendar, TrendingUp } from 'lucide-react';
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig>(() => safeStore.loadConfig());
@@ -405,9 +404,16 @@ export default function App() {
       ? 'Monthly Calendar, Day Logs & Habit History'
       : 'Habit Routines & GitHub Actions Planner';
 
+  // Switch the active view from the sidebar/drawer nav, also resetting the
+  // mobile sub-tab so Notes Workspace lands back on the list, not a stale editor.
+  const handleChangeView = useCallback((view: 'editor' | 'calendar' | 'habits') => {
+    setActiveView(view);
+    setMobileTab(view === 'editor' ? 'list' : view);
+  }, []);
+
   return (
     <div className="min-h-screen h-screen flex flex-col md:flex-row bg-[#f2f4f7] dark:bg-gray-950 text-[#111827] dark:text-gray-100 transition-colors">
-      {/* Sidebar Menu (mobile top bar + desktop sidebar) */}
+      {/* Sidebar Menu (mobile drawer + desktop sidebar) */}
       <Sidebar
         config={config}
         onUpdateConfig={handleUpdateConfig}
@@ -417,7 +423,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         activeView={activeView}
-        onChangeView={setActiveView}
+        onChangeView={handleChangeView}
         contextLabel={contextLabel}
       />
 
@@ -430,7 +436,7 @@ export default function App() {
         />
 
         {/* Main Workspace Area */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {activeView === 'habits' || mobileTab === 'habits' ? (
             <div className="w-full h-full flex-1">
               <HabitTracker
@@ -497,66 +503,6 @@ export default function App() {
             </>
           )}
         </div>
-
-        {/* Mobile Bottom Navigation Bar (Always visible on mobile) */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-around h-16 px-2">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileTab('list');
-                setActiveView('editor');
-              }}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-                activeView === 'editor' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
-              }`}
-            >
-              <FileText className="w-5 h-5 mb-0.5" />
-              <span className="text-[10px] font-medium leading-none">Notes</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileTab('calendar');
-                setActiveView('calendar');
-              }}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-                activeView === 'calendar' || mobileTab === 'calendar' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
-              }`}
-            >
-              <Calendar className="w-5 h-5 mb-0.5" />
-              <span className="text-[10px] font-medium leading-none">Calendar</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileTab('habits');
-                setActiveView('habits');
-              }}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-                activeView === 'habits' || mobileTab === 'habits' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
-              }`}
-            >
-              <TrendingUp className="w-5 h-5 mb-0.5" />
-              <span className="text-[10px] font-medium leading-none">Habits</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Floating Action Button (Mobile Only: List/Calendar/Habits views) */}
-        {mobileTab !== 'editor' && (
-          <button
-            type="button"
-            onClick={() => {
-              handleNewNote();
-              setMobileTab('editor');
-            }}
-            className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
-            title="Create New Note"
-          >
-            <Edit3 className="w-6 h-6" />
-          </button>
-        )}
 
         {/* Signature Session Commit Footer */}
         <div className="hidden md:block">
