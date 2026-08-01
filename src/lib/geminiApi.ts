@@ -1,7 +1,21 @@
 import { GoogleGenAI } from '@google/genai';
 
 /**
- * Resolve the Gemini API key.
+ * How the app reaches Gemini.
+ *
+ * When `proxyUrl` is set, requests go through the Cloudflare worker in
+ * `worker/`, which runs in a supported region and injects the real API key.
+ * That is the path to use where Gemini is geo-blocked. Otherwise the browser
+ * talks to Google directly with `geminiKey`.
+ */
+export interface AiSettings {
+  proxyUrl?: string;
+  proxyKey?: string;
+  geminiKey?: string;
+}
+
+/**
+ * Resolve the Gemini API key for direct (non-proxied) calls.
  * Priority: explicit override → GEMINI_API_KEY env var (injected by AI Studio) → empty string.
  */
 function resolveApiKey(overrideKey?: string): string {
@@ -12,9 +26,26 @@ function resolveApiKey(overrideKey?: string): string {
   return meta.GEMINI_API_KEY || meta.VITE_GEMINI_API_KEY || '';
 }
 
-function getClient(apiKey: string): GoogleGenAI {
-  if (!apiKey) throw new Error('Gemini API key is not configured.');
-  return new GoogleGenAI({ apiKey });
+function getClient(settings: AiSettings = {}): GoogleGenAI {
+  const proxyUrl = settings.proxyUrl?.trim().replace(/\/+$/, '');
+
+  if (proxyUrl) {
+    const proxyKey = settings.proxyKey?.trim();
+    if (!proxyKey) throw new Error('AI proxy key is not configured.');
+    return new GoogleGenAI({
+      // The proxy replaces this placeholder with the real key server-side.
+      // The SDK refuses to build a request without some apiKey value.
+      apiKey: 'via-proxy',
+      httpOptions: {
+        baseUrl: proxyUrl,
+        headers: { 'x-proxy-key': proxyKey }
+      }
+    });
+  }
+
+  const key = resolveApiKey(settings.geminiKey);
+  if (!key) throw new Error('Gemini API key is not configured.');
+  return new GoogleGenAI({ apiKey: key });
 }
 
 const MODEL = 'gemini-3.6-flash';
@@ -24,9 +55,15 @@ const MODEL = 'gemini-3.6-flash';
  */
 function handleApiError(err: any): never {
   const msg = typeof err === 'string' ? err : (err?.message || String(err));
-  
+
   if (msg.includes('User location is not supported') || msg.includes('FAILED_PRECONDITION')) {
-    throw new Error('Gemini AI is not supported in your current region. Please use a VPN.');
+    throw new Error(
+      'Gemini is blocked in this region. Configure the AI proxy URL in settings to route requests through the worker.'
+    );
+  }
+
+  if (msg.includes('Invalid or missing proxy key')) {
+    throw new Error('AI proxy rejected the request: check the proxy key in settings.');
   }
 
   // Try to parse raw JSON error strings from the SDK
@@ -36,7 +73,9 @@ function handleApiError(err: any): never {
       const parsed = JSON.parse(match[1]);
       if (parsed.error?.message) {
         if (parsed.error.message.includes('User location is not supported')) {
-          throw new Error('Gemini AI is not supported in your current region. Please use a VPN.');
+          throw new Error(
+            'Gemini is blocked in this region. Configure the AI proxy URL in settings to route requests through the worker.'
+          );
         }
         throw new Error(parsed.error.message);
       }
@@ -55,10 +94,9 @@ function handleApiError(err: any): never {
 export async function suggestTags(
   title: string,
   body: string,
-  apiKey?: string
+  settings?: AiSettings
 ): Promise<string[]> {
-  const key = resolveApiKey(apiKey);
-  const ai = getClient(key);
+  const ai = getClient(settings);
 
   const prompt = `You are a note-tagging assistant. Given the following note title and content, suggest up to 5 short, relevant lowercase tags (single words or hyphenated-words, no # prefix).
 
@@ -108,10 +146,9 @@ Return ONLY a JSON array of strings, e.g. ["productivity","react","ideas"]. No e
  */
 export async function generateTitle(
   body: string,
-  apiKey?: string
+  settings?: AiSettings
 ): Promise<string> {
-  const key = resolveApiKey(apiKey);
-  const ai = getClient(key);
+  const ai = getClient(settings);
 
   const prompt = `You are a note-titling assistant. Given the following note content, generate a concise, descriptive title (max 8 words, plain text, no markdown, no quotes).
 
@@ -142,10 +179,9 @@ Return ONLY the title text on a single line.`;
 export async function summarizeNote(
   title: string,
   body: string,
-  apiKey?: string
+  settings?: AiSettings
 ): Promise<string> {
-  const key = resolveApiKey(apiKey);
-  const ai = getClient(key);
+  const ai = getClient(settings);
 
   const prompt = `You are a concise note-summarization assistant. Summarize the following note into 2–4 bullet points capturing the most important ideas. Use plain markdown bullets (- item). Keep each bullet under 15 words.
 

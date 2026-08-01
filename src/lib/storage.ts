@@ -48,7 +48,9 @@ class SafeStorage {
         branch: parsed.branch || 'main',
         notesFolder: parsed.notesFolder || 'notes',
         token: parsed.token || '',
-        geminiKey: parsed.geminiKey || ''
+        geminiKey: parsed.geminiKey || '',
+        aiProxyUrl: parsed.aiProxyUrl || '',
+        aiProxyKey: parsed.aiProxyKey || ''
       };
     } catch {
       return { ...defaultConfig };
