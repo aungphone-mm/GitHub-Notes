@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AppConfig, NoteHeader, NoteDetail, CommitNode, StatusState } from './types';
 import { safeStore } from './lib/storage';
 import { listNotes, readNote, saveNote, appendToDailyLog, deleteNote, GitHubApiError } from './lib/githubApi';
-import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
@@ -399,10 +399,16 @@ export default function App() {
     }
   }, [selectedPath, handleSelectNote, handleLoadNotes]);
 
+  const contextLabel = activeView === 'editor'
+    ? (selectedPath ? `Editing: ${selectedPath}` : 'Drafting / Reading Note')
+    : activeView === 'calendar'
+      ? 'Monthly Calendar, Day Logs & Habit History'
+      : 'Habit Routines & GitHub Actions Planner';
+
   return (
-    <div className="min-h-screen h-screen flex flex-col bg-[#f2f4f7] dark:bg-gray-950 text-[#111827] dark:text-gray-100 transition-colors">
-      {/* Header Config Bar */}
-      <Header
+    <div className="min-h-screen h-screen flex flex-col md:flex-row bg-[#f2f4f7] dark:bg-gray-950 text-[#111827] dark:text-gray-100 transition-colors">
+      {/* Sidebar Menu (mobile top bar + desktop sidebar) */}
+      <Sidebar
         config={config}
         onUpdateConfig={handleUpdateConfig}
         onForgetToken={handleForgetToken}
@@ -410,208 +416,156 @@ export default function App() {
         isLoading={isLoading}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        activeView={activeView}
+        onChangeView={setActiveView}
+        contextLabel={contextLabel}
       />
 
-      {/* Global Status Line */}
-      <StatusBar
-        status={status}
-        onClear={() => setStatus({ type: 'idle', message: '' })}
-      />
+      {/* Content Column */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Global Status Line */}
+        <StatusBar
+          status={status}
+          onClear={() => setStatus({ type: 'idle', message: '' })}
+        />
 
-      {/* View Switcher Navigation Bar (Desktop Only) */}
-      <div className="hidden md:flex bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-2 items-center justify-between shrink-0 z-10">
-        {/* Desktop View Mode Segment */}
-        <div className="hidden md:flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => setActiveView('editor')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
-              activeView === 'editor'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Notes Workspace</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveView('calendar')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
-              activeView === 'calendar'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Calendar View</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveView('habits')}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
-              activeView === 'habits'
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-2xs'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Habit Tracker</span>
-          </button>
-        </div>
-
-        {/* Desktop Context Label */}
-        <div className="hidden md:block text-xs font-mono text-gray-500 dark:text-gray-400">
-          {activeView === 'editor' ? (
-            selectedPath ? `Editing: ${selectedPath}` : 'Drafting / Reading Note'
-          ) : activeView === 'calendar' ? (
-            'Monthly Calendar, Day Logs & Habit History'
-          ) : (
-            'Habit Routines & GitHub Actions Planner'
-          )}
-        </div>
-
-
-      </div>
-
-      {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
-        {activeView === 'habits' || mobileTab === 'habits' ? (
-          <div className="w-full h-full flex-1">
-            <HabitTracker
-              config={config}
-              onCommit={(sha, message, path) => addSessionCommit(sha, message, path, 'update')}
-            />
-          </div>
-        ) : activeView === 'calendar' || mobileTab === 'calendar' ? (
-          <div className="w-full h-full flex-1">
-            <CalendarView
-              notes={notesWithFavorites}
-              selectedPath={selectedPath}
-              onSelectNote={(path) => {
-                handleSelectNote(path);
-                setActiveView('editor');
-                setMobileTab('editor');
-              }}
-              onNewNoteForDate={(dateStr) => {
-                handleNewNoteForDate(dateStr);
-                setActiveView('editor');
-                setMobileTab('editor');
-              }}
-              onToggleFavorite={handleToggleFavorite}
-            />
-          </div>
-        ) : (
-          <>
-            {/* Note List Sidebar */}
-            <div className={`h-full ${mobileTab === 'list' ? 'block' : 'hidden'} md:block md:w-80 lg:w-96 shrink-0`}>
-              <NoteList
+        {/* Main Workspace Area */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+          {activeView === 'habits' || mobileTab === 'habits' ? (
+            <div className="w-full h-full flex-1">
+              <HabitTracker
+                config={config}
+                onCommit={(sha, message, path) => addSessionCommit(sha, message, path, 'update')}
+              />
+            </div>
+          ) : activeView === 'calendar' || mobileTab === 'calendar' ? (
+            <div className="w-full h-full flex-1">
+              <CalendarView
                 notes={notesWithFavorites}
                 selectedPath={selectedPath}
                 onSelectNote={(path) => {
                   handleSelectNote(path);
+                  setActiveView('editor');
                   setMobileTab('editor');
                 }}
-                onNewNote={() => {
-                  handleNewNote();
+                onNewNoteForDate={(dateStr) => {
+                  handleNewNoteForDate(dateStr);
+                  setActiveView('editor');
                   setMobileTab('editor');
                 }}
-                onRefresh={handleLoadNotes}
-                isLoading={isLoading}
                 onToggleFavorite={handleToggleFavorite}
-                onDeleteNote={handleDeleteNote}
-                config={config}
               />
             </div>
+          ) : (
+            <>
+              {/* Note List Sidebar */}
+              <div className={`h-full ${mobileTab === 'list' ? 'block' : 'hidden'} md:block md:w-80 lg:w-96 shrink-0`}>
+                <NoteList
+                  notes={notesWithFavorites}
+                  selectedPath={selectedPath}
+                  onSelectNote={(path) => {
+                    handleSelectNote(path);
+                    setMobileTab('editor');
+                  }}
+                  onNewNote={() => {
+                    handleNewNote();
+                    setMobileTab('editor');
+                  }}
+                  onRefresh={handleLoadNotes}
+                  isLoading={isLoading}
+                  onToggleFavorite={handleToggleFavorite}
+                  onDeleteNote={handleDeleteNote}
+                  config={config}
+                />
+              </div>
 
-            {/* Note Editor Main Pane */}
-            <div className={`h-full flex-1 ${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-col min-w-0`}>
-              <NoteEditor
-                config={config}
-                currentNote={currentNote}
-                onSaveNote={handleSaveNote}
-                onAppendToDaily={handleAppendDaily}
-                onDeleteNote={handleDeleteNote}
-                onNewNote={handleNewNote}
-                isLoading={isLoading}
-                conflictError={conflictError}
-                onResolveConflictRefresh={handleResolveConflictRefresh}
-                onBackToList={() => setMobileTab('list')}
-              />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Mobile Bottom Navigation Bar (Always visible on mobile) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-around h-16 px-2">
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('list');
-              setActiveView('editor');
-            }}
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-              activeView === 'editor' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
-            }`}
-          >
-            <FileText className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-medium leading-none">Notes</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('calendar');
-              setActiveView('calendar');
-            }}
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-              activeView === 'calendar' || mobileTab === 'calendar' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
-            }`}
-          >
-            <Calendar className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-medium leading-none">Calendar</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('habits');
-              setActiveView('habits');
-            }}
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-              activeView === 'habits' || mobileTab === 'habits' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
-            }`}
-          >
-            <TrendingUp className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] font-medium leading-none">Habits</span>
-          </button>
+              {/* Note Editor Main Pane */}
+              <div className={`h-full flex-1 ${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-col min-w-0`}>
+                <NoteEditor
+                  config={config}
+                  currentNote={currentNote}
+                  onSaveNote={handleSaveNote}
+                  onAppendToDaily={handleAppendDaily}
+                  onDeleteNote={handleDeleteNote}
+                  onNewNote={handleNewNote}
+                  isLoading={isLoading}
+                  conflictError={conflictError}
+                  onResolveConflictRefresh={handleResolveConflictRefresh}
+                  onBackToList={() => setMobileTab('list')}
+                />
+              </div>
+            </>
+          )}
         </div>
-      </div>
 
-      {/* Floating Action Button (Mobile Only: List/Calendar/Habits views) */}
-      {mobileTab !== 'editor' && (
-        <button
-          type="button"
-          onClick={() => {
-            handleNewNote();
-            setMobileTab('editor');
-          }}
-          className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
-          title="Create New Note"
-        >
-          <Edit3 className="w-6 h-6" />
-        </button>
-      )}
+        {/* Mobile Bottom Navigation Bar (Always visible on mobile) */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-around h-16 px-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileTab('list');
+                setActiveView('editor');
+              }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                activeView === 'editor' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              <FileText className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px] font-medium leading-none">Notes</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileTab('calendar');
+                setActiveView('calendar');
+              }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                activeView === 'calendar' || mobileTab === 'calendar' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              <Calendar className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px] font-medium leading-none">Calendar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMobileTab('habits');
+                setActiveView('habits');
+              }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                activeView === 'habits' || mobileTab === 'habits' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              <TrendingUp className="w-5 h-5 mb-0.5" />
+              <span className="text-[10px] font-medium leading-none">Habits</span>
+            </button>
+          </div>
+        </div>
 
-      {/* Signature Session Commit Footer */}
-      <div className="hidden md:block">
-        <CommitFooter
-          commits={commits}
-          owner={config.owner}
-          repo={config.repo}
-        />
+        {/* Floating Action Button (Mobile Only: List/Calendar/Habits views) */}
+        {mobileTab !== 'editor' && (
+          <button
+            type="button"
+            onClick={() => {
+              handleNewNote();
+              setMobileTab('editor');
+            }}
+            className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+            title="Create New Note"
+          >
+            <Edit3 className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Signature Session Commit Footer */}
+        <div className="hidden md:block">
+          <CommitFooter
+            commits={commits}
+            owner={config.owner}
+            repo={config.repo}
+          />
+        </div>
       </div>
     </div>
   );
