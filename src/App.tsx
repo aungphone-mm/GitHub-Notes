@@ -418,8 +418,8 @@ export default function App() {
         onClear={() => setStatus({ type: 'idle', message: '' })}
       />
 
-      {/* View Switcher Navigation Bar (Desktop & Mobile) */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-2 flex items-center justify-between shrink-0 z-10">
+      {/* View Switcher Navigation Bar (Desktop Only) */}
+      <div className="hidden md:flex bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-2 items-center justify-between shrink-0 z-10">
         {/* Desktop View Mode Segment */}
         <div className="hidden md:flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
           <button
@@ -473,76 +473,11 @@ export default function App() {
           )}
         </div>
 
-        {/* Mobile View Selector Bar (< md) */}
-        <div className="flex md:hidden w-full gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('list');
-              setActiveView('editor');
-            }}
-            className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1 transition-colors ${
-              mobileTab === 'list' && activeView === 'editor'
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>List ({notes.length})</span>
-          </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('calendar');
-              setActiveView('calendar');
-            }}
-            className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1 transition-colors ${
-              mobileTab === 'calendar' || activeView === 'calendar'
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Calendar</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('habits');
-              setActiveView('habits');
-            }}
-            className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1 transition-colors ${
-              mobileTab === 'habits' || activeView === 'habits'
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>Habits</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setMobileTab('editor');
-              setActiveView('editor');
-            }}
-            className={`flex-1 py-1.5 px-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1 transition-colors ${
-              mobileTab === 'editor' && activeView === 'editor'
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Editor</span>
-          </button>
-        </div>
       </div>
 
       {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className={`flex-1 flex flex-col md:flex-row overflow-hidden ${mobileTab !== 'editor' ? 'pb-16 md:pb-0' : ''}`}>
         {activeView === 'habits' || mobileTab === 'habits' ? (
           <div className="w-full h-full flex-1">
             <HabitTracker
@@ -612,12 +547,71 @@ export default function App() {
         )}
       </div>
 
+      {/* Mobile Bottom Navigation Bar */}
+      {mobileTab !== 'editor' && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-around h-16 px-2">
+            <button
+              onClick={() => {
+                setMobileTab('list');
+                setActiveView('editor');
+              }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                mobileTab === 'list' && activeView === 'editor' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              <FileText className="w-6 h-6 mb-0.5" />
+              <span className="text-[10px] font-medium leading-none">Notes</span>
+            </button>
+            <button
+              onClick={() => {
+                setMobileTab('calendar');
+                setActiveView('calendar');
+              }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                mobileTab === 'calendar' || activeView === 'calendar' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              <Calendar className="w-6 h-6 mb-0.5" />
+              <span className="text-[10px] font-medium leading-none">Calendar</span>
+            </button>
+            <button
+              onClick={() => {
+                setMobileTab('habits');
+                setActiveView('habits');
+              }}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
+                mobileTab === 'habits' || activeView === 'habits' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              <TrendingUp className="w-6 h-6 mb-0.5" />
+              <span className="text-[10px] font-medium leading-none">Habits</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button (Mobile Only) */}
+      {mobileTab !== 'editor' && (
+        <button
+          onClick={() => {
+            handleNewNote();
+            setMobileTab('editor');
+          }}
+          className="md:hidden fixed bottom-20 right-4 z-50 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+        >
+          <Edit3 className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Signature Session Commit Footer */}
-      <CommitFooter
-        commits={commits}
-        owner={config.owner}
-        repo={config.repo}
-      />
+      <div className="hidden md:block">
+        <CommitFooter
+          commits={commits}
+          owner={config.owner}
+          repo={config.repo}
+        />
+      </div>
     </div>
   );
 }
