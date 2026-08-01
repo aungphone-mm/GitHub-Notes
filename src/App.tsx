@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppConfig, NoteHeader, NoteDetail, CommitNode, StatusState } from './types';
 import { safeStore } from './lib/storage';
 import { listNotes, readNote, saveNote, appendToDailyLog, deleteNote, GitHubApiError } from './lib/githubApi';
@@ -161,10 +161,14 @@ export default function App() {
   }, [config]);
 
   // Initial auto-connect on mount if config is present
+  // Uses a ref guard to avoid the stale-closure problem with an empty dep array.
+  const didAutoConnect = useRef(false);
   useEffect(() => {
-    if (config.owner && config.repo && config.token) {
+    if (!didAutoConnect.current && config.owner && config.repo && config.token) {
+      didAutoConnect.current = true;
       handleLoadNotes();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Select and read a note
@@ -543,8 +547,6 @@ export default function App() {
           <div className="w-full h-full flex-1">
             <HabitTracker
               config={config}
-              notes={notesWithFavorites}
-              selectedPath={selectedPath}
               onCommit={(sha, message, path) => addSessionCommit(sha, message, path, 'update')}
             />
           </div>

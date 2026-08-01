@@ -5,8 +5,7 @@ import {
   HabitCompletions,
   HabitData,
   HabitSyncState,
-  IssueRow,
-  NoteHeader
+  IssueRow
 } from '../types';
 import {
   DEFAULT_HABITS,
@@ -45,8 +44,6 @@ import {
 
 interface HabitTrackerProps {
   config: AppConfig;
-  notes?: NoteHeader[];
-  selectedPath?: string | null;
   onCommit?: (sha: string, message: string, path: string) => void;
 }
 

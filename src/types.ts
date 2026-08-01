@@ -4,6 +4,8 @@ export interface AppConfig {
   branch: string;
   notesFolder: string;
   token: string;
+  /** Optional Gemini API key for AI features. Falls back to GEMINI_API_KEY env var. */
+  geminiKey?: string;
 }
 
 export interface NoteHeader {
