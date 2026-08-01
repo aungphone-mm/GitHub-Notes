@@ -126,6 +126,15 @@ export const NoteList: React.FC<NoteListProps> = ({
       return;
     }
 
+    // Require at least 3 characters before hitting the GitHub search API
+    // to avoid exhausting rate limits on every keystroke.
+    if (searchTerm.trim().length < 3) {
+      setCodeSearchResults(null);
+      setCodeSearchError(null);
+      setIsSearchingCode(false);
+      return;
+    }
+
     if (!useGithubSearch || !isConfigValid || !config) {
       setCodeSearchResults(null);
       setCodeSearchError(null);
