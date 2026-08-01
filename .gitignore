@@ -10,3 +10,7 @@ coverage/
 # Cloudflare Worker local state and secrets
 .dev.vars
 .wrangler/
+
+# Claude Code conversation exports — these capture the full transcript,
+# including any credentials pasted into it.
+/20??-??-??-*.txt

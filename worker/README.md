@@ -64,6 +64,24 @@ curl -i https://gemini-proxy.your-subdomain.workers.dev/v1beta/models/gemini-3.6
 A `200` with a `candidates` array means it works. `401` means the proxy key
 doesn't match; `403` means your origin isn't in `ALLOWED_ORIGINS`.
 
+## Troubleshooting
+
+**"Failed to fetch" in the app.** This is a CORS rejection, not a network
+problem — a VPN will not help. The browser's origin isn't in `ALLOWED_ORIGINS`,
+so the worker returns 403 without CORS headers and the browser reports the
+generic failure. Add the origin shown in your address bar to `wrangler.toml`
+and redeploy. Vercel preview deployments each have their own origin and need
+adding individually.
+
+**"Invalid or missing proxy key" after it was working.** Editing variables in
+the Cloudflare dashboard can overwrite existing secrets with their masked
+display value. Set secrets with `wrangler secret put`, not the dashboard. To
+recover, just re-run `wrangler secret put PROXY_KEY` with the value the app
+already has in its sidebar.
+
+Config changes take a few seconds to propagate after `wrangler deploy` — a
+request immediately after deploying may still hit the old version.
+
 ## Notes
 
 - Cloudflare's free plan covers 100k requests/day, far more than this app needs.
