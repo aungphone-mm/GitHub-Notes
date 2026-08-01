@@ -4,6 +4,8 @@ export interface AppConfig {
   branch: string;
   notesFolder: string;
   token: string;
+  /** Optional Gemini API key for AI features. Falls back to GEMINI_API_KEY env var. */
+  geminiKey?: string;
 }
 
 export interface NoteHeader {
@@ -26,8 +28,9 @@ export interface NoteDetail {
   tags: string[];
   content: string;
   updated: string;
-  rawContent: string;
-  isPublic: boolean;
+  /** Raw file content including frontmatter. Optional — absent for unsaved/new notes. */
+  rawContent?: string;
+  isPublic?: boolean;
 }
 
 export interface CommitNode {

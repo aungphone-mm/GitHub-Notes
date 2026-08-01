@@ -89,6 +89,25 @@ async function ghFetch(
         ghMessage
       );
     }
+    if (response.status === 403) {
+      // Distinguish rate-limit (403 + x-ratelimit-remaining: 0) from plain forbidden
+      const remaining = response.headers.get('x-ratelimit-remaining');
+      const resetTs = response.headers.get('x-ratelimit-reset');
+      if (remaining === '0' && resetTs) {
+        const resetDate = new Date(Number(resetTs) * 1000);
+        const resetTime = resetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        throw new GitHubApiError(
+          403,
+          `Rate limit exceeded (403): GitHub API quota exhausted. Resets at ${resetTime}.`,
+          ghMessage
+        );
+      }
+      throw new GitHubApiError(
+        403,
+        `Forbidden (403): ${ghMessage || 'You do not have permission to access this resource.'}`,
+        ghMessage
+      );
+    }
     if (response.status === 404) {
       throw new GitHubApiError(
         404,
