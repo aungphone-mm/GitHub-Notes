@@ -9,7 +9,6 @@ import { NoteEditor } from './components/NoteEditor';
 import { CalendarView } from './components/CalendarView';
 import { HabitTracker } from './components/HabitTracker';
 import { CommitFooter } from './components/CommitFooter';
-import { Edit3 } from 'lucide-react';
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig>(() => safeStore.loadConfig());
@@ -504,21 +503,6 @@ export default function App() {
             </>
           )}
         </div>
-
-        {/* Floating Action Button (Mobile Only: List/Calendar/Habits views) */}
-        {mobileTab !== 'editor' && (
-          <button
-            type="button"
-            onClick={() => {
-              handleNewNote();
-              setMobileTab('editor');
-            }}
-            className="md:hidden fixed bottom-4 right-4 z-40 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
-            title="Create New Note"
-          >
-            <Edit3 className="w-6 h-6" />
-          </button>
-        )}
 
         {/* Signature Session Commit Footer */}
         <div className="hidden md:block">
