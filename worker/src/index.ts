@@ -77,13 +77,13 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    if (!env.GEMINI_API_KEY) {
-      return json({ error: { message: 'Proxy is missing GEMINI_API_KEY.' } }, 500, cors);
-    }
-
-    // Reject anyone who does not know the shared secret.
+    // Authenticate before revealing anything about how the proxy is configured.
     if (!env.PROXY_KEY || request.headers.get('x-proxy-key') !== env.PROXY_KEY) {
       return json({ error: { message: 'Invalid or missing proxy key.' } }, 401, cors);
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      return json({ error: { message: 'Proxy is missing GEMINI_API_KEY.' } }, 500, cors);
     }
 
     const url = new URL(request.url);
