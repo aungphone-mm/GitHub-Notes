@@ -26,6 +26,16 @@ export interface AppConfig {
   openrouterKey?: string;
 }
 
+/**
+ * The main workspace panes, as picked from the sidebar nav.
+ *
+ * 'timeline' is the List View. It is deliberately not called 'list': App's
+ * mobile sub-tab already uses 'list' for "show the NoteList sidebar", and it is
+ * that tab's initial value — reusing the name would make the List View either
+ * unreachable or the mobile landing screen, depending on branch order.
+ */
+export type ViewKey = 'editor' | 'timeline' | 'calendar' | 'habits';
+
 export interface NoteHeader {
   path: string;
   sha: string;

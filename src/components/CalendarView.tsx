@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { NoteHeader } from '../types';
 import { completedOn, formatDateKey, loadLocalCompletions, loadLocalHabits } from '../lib/habits';
+import { groupNotesByDate } from '../lib/noteDates';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, Star, FileText, Clock, Check, Circle } from 'lucide-react';
 
 interface CalendarViewProps {
@@ -40,45 +41,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-indexed
 
-  // Map each YYYY-MM-DD string to list of notes saved/associated with that date
-  const notesByDate = useMemo(() => {
-    const map = new Map<string, NoteHeader[]>();
-
-    for (const note of notes) {
-      const datesFound = new Set<string>();
-
-      // Match YYYY-MM-DD in path or filename (e.g. daily/2026-07-24.md or 2026-07-24-notes.md)
-      const pathMatches = note.path.match(/\b(\d{4}-\d{2}-\d{2})\b/g);
-      if (pathMatches) {
-        pathMatches.forEach(d => datesFound.add(d));
-      }
-
-      // Match YYYY-MM-DD in title
-      if (note.title) {
-        const titleMatches = note.title.match(/\b(\d{4}-\d{2}-\d{2})\b/g);
-        if (titleMatches) {
-          titleMatches.forEach(d => datesFound.add(d));
-        }
-      }
-
-      // Match updated timestamp date (e.g. 2026-07-24T...)
-      if (note.updated) {
-        const updatedDateStr = note.updated.slice(0, 10);
-        if (/^\d{4}-\d{2}-\d{2}$/.test(updatedDateStr)) {
-          datesFound.add(updatedDateStr);
-        }
-      }
-
-      // Add note to each matched date in the map
-      for (const d of datesFound) {
-        const list = map.get(d) || [];
-        list.push(note);
-        map.set(d, list);
-      }
-    }
-
-    return map;
-  }, [notes]);
+  // Map each YYYY-MM-DD string to list of notes saved/associated with that date.
+  // Shared with the List View so both file a note under the same dates.
+  const notesByDate = useMemo(() => groupNotesByDate(notes), [notes]);
 
   // Navigate month
   const handlePrevMonth = () => {
@@ -483,10 +448,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <span className="truncate">{note.path}</span>
                   </div>
 
-                  {note.updated && (
+                  {note.updatedAt && (
                     <div className="font-mono text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
                       <Clock className="w-3 h-3 shrink-0" />
-                      <span>{note.updated}</span>
+                      <span>{note.updatedAt}</span>
                     </div>
                   )}
                 </div>
