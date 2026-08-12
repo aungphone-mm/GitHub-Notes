@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AppConfig, NoteHeader, NoteDetail, CommitNode, StatusState } from './types';
+import { AppConfig, NoteHeader, NoteDetail, CommitNode, StatusState, ViewKey } from './types';
 import { safeStore } from './lib/storage';
 import { listNotes, readNote, saveNote, appendToDailyLog, deleteNote, GitHubApiError } from './lib/githubApi';
 import { Sidebar } from './components/Sidebar';
@@ -7,6 +7,7 @@ import { StatusBar } from './components/StatusBar';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
 import { CalendarView } from './components/CalendarView';
+import { ListView } from './components/ListView';
 import { HabitTracker } from './components/HabitTracker';
 import { CommitFooter } from './components/CommitFooter';
 
@@ -17,8 +18,10 @@ export default function App() {
   const [currentNote, setCurrentNote] = useState<NoteDetail | null>(null);
   const [commits, setCommits] = useState<CommitNode[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<'editor' | 'calendar' | 'habits'>('editor');
-  const [mobileTab, setMobileTab] = useState<'list' | 'calendar' | 'editor' | 'habits'>('list');
+  const [activeView, setActiveView] = useState<ViewKey>('editor');
+  // 'list' here means the NoteList pane of the editor workspace, not the List
+  // View pane — that one is 'timeline', matching ViewKey.
+  const [mobileTab, setMobileTab] = useState<'list' | 'timeline' | 'calendar' | 'editor' | 'habits'>('list');
   const [status, setStatus] = useState<StatusState>({
     type: 'idle',
     message: 'Ready. Configure repository credentials or select a note.'
@@ -400,13 +403,15 @@ export default function App() {
 
   const contextLabel = activeView === 'editor'
     ? (selectedPath ? `Editing: ${selectedPath}` : 'Drafting / Reading Note')
-    : activeView === 'calendar'
-      ? 'Monthly Calendar, Day Logs & Habit History'
-      : 'Habit Routines & GitHub Actions Planner';
+    : activeView === 'timeline'
+      ? 'Every Note & Habit, Grouped by Date'
+      : activeView === 'calendar'
+        ? 'Monthly Calendar, Day Logs & Habit History'
+        : 'Habit Routines & GitHub Actions Planner';
 
   // Switch the active view from the sidebar/drawer nav, also resetting the
   // mobile sub-tab so Notes Workspace lands back on the list, not a stale editor.
-  const handleChangeView = useCallback((view: 'editor' | 'calendar' | 'habits') => {
+  const handleChangeView = useCallback((view: ViewKey) => {
     setActiveView(view);
     setMobileTab(view === 'editor' ? 'list' : view);
   }, []);
@@ -442,6 +447,24 @@ export default function App() {
               <HabitTracker
                 config={config}
                 onCommit={(sha, message, path) => addSessionCommit(sha, message, path, 'update')}
+              />
+            </div>
+          ) : activeView === 'timeline' || mobileTab === 'timeline' ? (
+            <div className="w-full h-full flex-1">
+              <ListView
+                notes={notesWithFavorites}
+                selectedPath={selectedPath}
+                onSelectNote={(path) => {
+                  handleSelectNote(path);
+                  setActiveView('editor');
+                  setMobileTab('editor');
+                }}
+                onNewNoteForDate={(dateStr) => {
+                  handleNewNoteForDate(dateStr);
+                  setActiveView('editor');
+                  setMobileTab('editor');
+                }}
+                onToggleFavorite={handleToggleFavorite}
               />
             </div>
           ) : activeView === 'calendar' || mobileTab === 'calendar' ? (

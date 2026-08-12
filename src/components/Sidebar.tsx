@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import { AppConfig } from '../types';
 import {
   Github, Sun, Moon, Settings, ChevronDown, ChevronUp, CheckCircle2,
-  AlertTriangle, X, Sparkles, FileText, Calendar, TrendingUp,
+  AlertTriangle, X, Sparkles, FileText, Calendar, TrendingUp, List,
   PanelLeftClose, PanelLeftOpen, Menu
 } from 'lucide-react';
+import { ViewKey } from '../types';
 
 const PAT_WARNING_KEY = 'gh_notes_pat_warning_dismissed';
-
-type ViewKey = 'editor' | 'calendar' | 'habits';
 
 interface SettingsFormProps {
   config: AppConfig;
@@ -271,6 +270,7 @@ interface SidebarBodyProps {
 
 const navItems: { key: ViewKey; label: string; icon: React.ReactNode }[] = [
   { key: 'editor', label: 'Notes Workspace', icon: <FileText className="w-4 h-4" /> },
+  { key: 'timeline', label: 'List View', icon: <List className="w-4 h-4" /> },
   { key: 'calendar', label: 'Calendar View', icon: <Calendar className="w-4 h-4" /> },
   { key: 'habits', label: 'Habit Tracker', icon: <TrendingUp className="w-4 h-4 text-emerald-500" /> }
 ];
