@@ -122,12 +122,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   }, []);
 
   // ── AI Handlers ────────────────────────────────────────────────────────────
-  // Routes through the proxy worker when configured, else calls Gemini directly.
+  // Provider is picked in geminiApi's runPrompt: proxy worker, then OpenRouter,
+  // then a direct Gemini call.
   const aiSettings = useMemo(() => ({
     proxyUrl: config.aiProxyUrl,
     proxyKey: config.aiProxyKey,
-    geminiKey: config.geminiKey
-  }), [config.aiProxyUrl, config.aiProxyKey, config.geminiKey]);
+    geminiKey: config.geminiKey,
+    openrouterKey: config.openrouterKey
+  }), [config.aiProxyUrl, config.aiProxyKey, config.geminiKey, config.openrouterKey]);
 
   const handleAISuggestTags = useCallback(async () => {
     if (aiLoadingTag || (!content.trim() && !title.trim())) return;

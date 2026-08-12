@@ -50,7 +50,8 @@ class SafeStorage {
         token: parsed.token || '',
         geminiKey: parsed.geminiKey || '',
         aiProxyUrl: parsed.aiProxyUrl || '',
-        aiProxyKey: parsed.aiProxyKey || ''
+        aiProxyKey: parsed.aiProxyKey || '',
+        openrouterKey: parsed.openrouterKey || ''
       };
     } catch {
       return { ...defaultConfig };

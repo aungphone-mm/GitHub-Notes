@@ -4,16 +4,26 @@ export interface AppConfig {
   branch: string;
   notesFolder: string;
   token: string;
-  /** Optional Gemini API key for direct calls. Ignored when aiProxyUrl is set. */
+  /**
+   * Optional Gemini API key for direct calls. Last in the provider chain —
+   * ignored when aiProxyUrl or openrouterKey is set.
+   */
   geminiKey?: string;
   /**
    * Base URL of the Gemini proxy worker (see `worker/`). Set this where Gemini
    * is geo-blocked — requests route through the worker instead of the browser
-   * calling Google directly, and the API key stays server-side.
+   * calling Google directly, and the API key stays server-side. First in the
+   * provider chain: deploying a worker is deliberate, so it wins over the keys.
    */
   aiProxyUrl?: string;
   /** Shared secret the proxy worker requires (its PROXY_KEY). */
   aiProxyKey?: string;
+  /**
+   * Optional OpenRouter API key. A second way around a Gemini geo-block that
+   * needs nothing deployed: OpenRouter calls the model from its own servers.
+   * Used when aiProxyUrl is not set. Get one at https://openrouter.ai/keys.
+   */
+  openrouterKey?: string;
 }
 
 export interface NoteHeader {
