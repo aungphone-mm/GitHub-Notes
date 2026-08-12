@@ -186,6 +186,31 @@ const SettingsForm: React.FC<SettingsFormProps> = ({
           />
         </div>
 
+        <div>
+          <label className="flex items-center gap-1 text-[10px] font-mono font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+            <Sparkles className="w-2.5 h-2.5 text-purple-500" />
+            OPENROUTER KEY
+          </label>
+          <input
+            type="password"
+            value={config.openrouterKey || ''}
+            onChange={(e) => handleChange('openrouterKey', e.target.value)}
+            placeholder="sk-or-… (only without proxy)"
+            className="w-full px-2.5 py-1 text-xs font-mono bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md focus:bg-white dark:focus:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+          />
+          <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 leading-snug">
+            Another way around a Gemini block, with nothing to deploy. Get one at{' '}
+            <a
+              href="https://openrouter.ai/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              openrouter.ai/keys
+            </a>.
+          </p>
+        </div>
+
         <div className="flex items-center gap-2 pt-1">
           <button
             type="button"
